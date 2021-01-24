@@ -1,0 +1,12 @@
+[package]
+name = "mp-assembler"
+version = "0.1.0"
+authors = ["Tom <twitchyliquid64@ciphersink.net>"]
+edition = "2018"
+
+[dependencies]
+bevy = "0.4"
+bevy_4x_camera = "0.1"
+bevy-inspector-egui = "0.2"
+bevy_stl = "0.2"
+bevy_egui = "0.1"
