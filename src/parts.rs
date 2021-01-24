@@ -1,3 +1,4 @@
+pub use crate::selection::Selectable;
 use bevy::prelude::*;
 
 /// Component that is present on all screw entities
@@ -7,6 +8,8 @@ pub struct Screw;
 /// Bundle to make it easy to construct screw entities.
 #[derive(Bundle, Debug, Default)]
 pub struct ScrewBundle {
+    screw: Screw,
+    selectable: Selectable,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -19,7 +22,8 @@ pub struct Pcb;
 /// all the usual components present.
 #[derive(Bundle, Debug)]
 pub struct PcbBundle {
-    pub pcb: Pcb,
+    pcb: Pcb,
+    selectable: Selectable,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 
@@ -30,6 +34,7 @@ impl PcbBundle {
     pub fn new_with_stl(path: &'static str) -> Self {
         Self {
             pcb: Pcb::default(),
+            selectable: Selectable::default(),
             transform: Transform::default(),
             global_transform: GlobalTransform::default(),
             geometry: Geometry::Stl(path),
@@ -65,7 +70,9 @@ pub fn spawn_pcb(
 ) {
     let mesh = pcb.make_mesh(asset_server, materials);
     commands.spawn(pcb).with_children(|parent| {
-        parent.spawn(mesh);
+        parent
+            .spawn(mesh)
+            .with(bevy_mod_picking::PickableMesh::default());
     });
 }
 
@@ -91,20 +98,28 @@ pub fn spawn_m3_screw(
         })
         .with_children(|parent| {
             let transform = Transform::from_translation(Vec3::new(0., 0., length as f32));
-            parent.spawn(PbrBundle {
-                mesh: asset_server.load("m3-pan_head.stl"),
-                material: stainless.clone(),
-                transform,
-                ..Default::default()
-            });
+            let pan_head = asset_server.load("m3-pan_head.stl");
+            parent
+                .spawn(PbrBundle {
+                    mesh: pan_head.clone(),
+                    material: stainless.clone(),
+                    transform,
+                    ..Default::default()
+                })
+                .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(pan_head));
 
             for i in 0..(length / 2) {
-                parent.spawn(PbrBundle {
-                    mesh: thread_2mm.clone(),
-                    material: stainless.clone(),
-                    transform: Transform::from_translation(Vec3::new(0., 0., i as f32 * 2.0)),
-                    ..Default::default()
-                });
+                parent
+                    .spawn(PbrBundle {
+                        mesh: thread_2mm.clone(),
+                        material: stainless.clone(),
+                        transform: Transform::from_translation(Vec3::new(0., 0., i as f32 * 2.0)),
+                        ..Default::default()
+                    })
+                    .with(
+                        bevy_mod_picking::PickableMesh::default()
+                            .with_bounding_sphere(thread_2mm.clone()),
+                    );
             }
         });
 }

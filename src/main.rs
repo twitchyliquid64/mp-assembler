@@ -1,75 +1,22 @@
 use bevy::{prelude::*, render::camera::PerspectiveProjection};
 use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf, MouseConf};
-use bevy_inspector_egui::{Inspectable, InspectorPlugin};
+use bevy_inspector_egui::bevy_egui::EguiContext;
+use bevy_mod_picking::*;
 
+mod grid;
 mod parts;
+mod selection;
 
-#[derive(Inspectable, Debug, Default)]
-struct Data {
-    #[inspectable(label = "Part position")]
-    transform: Transform,
-}
-
-fn data_ui(
-    data: Res<Data>,
-    egui: Res<bevy_egui::EguiContext>,
-    mut pcbs: Query<&mut Transform, With<parts::Pcb>>,
+fn interaction_state(
+    egui: Res<EguiContext>,
     mut cameras: Query<&mut CameraRig>,
+    mut pick_state: ResMut<PickState>,
 ) {
-    // Updates component values from the UI.
-    for mut t in pcbs.iter_mut() {
-        *t = data.transform;
-    }
-
+    let using_gui = egui.ctx.wants_mouse_input();
     for mut c in cameras.iter_mut() {
-        c.disable = egui.ctx.wants_mouse_input();
+        c.disable = using_gui;
     }
-}
-
-
-fn grid(
-    commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-) {
-    let gap = 15.0;
-    let count = 10;
-
-    (0..count+1)
-        .map(|i| {
-            let mut transform = Transform::from_translation(Vec3::new(
-                i as f32 * gap - (gap * count as f32 / 2.),
-                0.,
-                0.,
-            ));
-            transform.rotate(Quat::from_rotation_x(std::f32::consts::PI / -2.));
-            commands.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-                    0.05,
-                    gap * count as f32,
-                )))),
-                material: materials.add(Color::rgb(0.07, 0.06, 0.04).into()),
-                transform,
-                ..Default::default()
-            });
-
-            let mut transform = Transform::from_translation(Vec3::new(
-                0.,
-                0.,
-                i as f32 * gap - (gap * count as f32 / 2.),
-            ));
-            transform.rotate(Quat::from_rotation_x(std::f32::consts::PI / -2.));
-            commands.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-                    gap * count as f32,
-                    0.05,
-                )))),
-                material: materials.add(Color::rgb(0.07, 0.06, 0.04).into()),
-                transform,
-                ..Default::default()
-            });
-        })
-        .for_each(drop);
+    pick_state.enabled = !using_gui;
 }
 
 fn startup(
@@ -78,7 +25,6 @@ fn startup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    grid(commands, meshes, &mut materials);
     commands
         // lights
         .spawn(LightBundle {
@@ -133,6 +79,7 @@ fn startup(
                     .looking_at(Vec3::zero(), Vec3::unit_y()),
                 ..Default::default()
             });
+            cb.with(PickSource::default());
         });
 
     // Actual PCB
@@ -157,10 +104,12 @@ fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
+        .add_plugin(PickingPlugin)
         .add_plugin(bevy_stl::StlPlugin)
         .add_plugin(FourXCameraPlugin)
         .add_startup_system(startup.system())
-        .add_system(data_ui.system())
-        .add_plugin(InspectorPlugin::<Data>::new())
+        .add_system(interaction_state.system())
+        .add_plugin(grid::Plugin)
+        .add_plugin(selection::Plugin)
         .run();
 }
