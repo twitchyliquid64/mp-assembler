@@ -1,9 +1,10 @@
 use bevy::{prelude::*, render::camera::PerspectiveProjection};
 use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf, MouseConf};
-use bevy_inspector_egui::bevy_egui::EguiContext;
+use bevy_egui::EguiContext;
 use bevy_mod_picking::*;
 
 mod grid;
+mod gui;
 mod parts;
 mod selection;
 
@@ -111,5 +112,6 @@ fn main() {
         .add_system(interaction_state.system())
         .add_plugin(grid::Plugin)
         .add_plugin(selection::Plugin)
+        .add_plugin(gui::Plugin)
         .run();
 }

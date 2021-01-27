@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 bevy = "0.4"
 bevy_4x_camera = "0.1"
-bevy-inspector-egui = "0.3"
+bevy_egui = "0.1"
 bevy_stl = "0.2"
 bevy_mod_picking = "0.3"

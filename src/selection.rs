@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::{Inspectable, InspectorPlugin};
 use bevy_mod_picking::*;
 
 pub struct Plugin;
@@ -9,9 +8,7 @@ impl bevy::prelude::Plugin for Plugin {
         app.add_resource(Selection::default())
             .add_event::<ParentClickedEvent>()
             .add_system(get_picks.system())
-            .add_system(update_selection.system())
-            .add_plugin(InspectorPlugin::<Inspector>::new())
-            .add_system(writeback_ui.system());
+            .add_system(update_selection.system());
     }
 }
 
@@ -33,7 +30,6 @@ fn get_picks(
 
 fn update_selection(
     mut selection: ResMut<Selection>,
-    mut data: ResMut<Inspector>,
 
     events: Res<Events<ParentClickedEvent>>,
     mut reader: Local<EventReader<ParentClickedEvent>>,
@@ -44,11 +40,9 @@ fn update_selection(
     for ev in reader.iter(&events) {
         if let Ok(transform) = selection_query.get(ev.0) {
             selection.entity = Some(ev.0);
-            data.transform = transform.clone();
-            data.selection = format!("{:?}", ev.0).to_string();
+        // data.transform = transform.clone();
         } else {
             selection.entity = None;
-            data.selection = "<None>".to_string();
         }
     }
 }
@@ -60,27 +54,19 @@ struct ParentClickedEvent(pub Entity);
 pub struct Selectable;
 
 #[derive(Default, Debug)]
-struct Selection {
-    entity: Option<Entity>,
+pub struct Selection {
+    pub entity: Option<Entity>,
 }
 
-#[derive(Inspectable, Debug, Default)]
-struct Inspector {
-    #[inspectable(label = "Selection")]
-    selection: String,
-    #[inspectable(label = "Position")]
-    transform: Transform,
-}
-
-fn writeback_ui(
-    data: Res<Inspector>,
-    selection: Res<Selection>,
-    mut query: Query<&mut Transform, With<Selectable>>,
-) {
-    // Updates component values from the UI.
-    if let Some(eid) = selection.entity {
-        if let Ok(mut t) = query.get_mut(eid) {
-            *t = data.transform;
-        }
-    }
-}
+// fn writeback_ui(
+//     data: Res<Inspector>,
+//     selection: Res<Selection>,
+//     mut query: Query<&mut Transform, With<Selectable>>,
+// ) {
+//     // Updates component values from the UI.
+//     if let Some(eid) = selection.entity {
+//         if let Ok(mut t) = query.get_mut(eid) {
+//             *t = data.transform;
+//         }
+//     }
+// }

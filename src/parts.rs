@@ -2,8 +2,17 @@ pub use crate::selection::Selectable;
 use bevy::prelude::*;
 
 /// Component that is present on all screw entities
-#[derive(Default, Debug)]
-pub struct Screw;
+#[derive(Debug)]
+pub enum Screw {
+    M3,
+    M5,
+}
+
+impl Default for Screw {
+    fn default() -> Self {
+        Screw::M3
+    }
+}
 
 /// Bundle to make it easy to construct screw entities.
 #[derive(Bundle, Debug, Default)]
@@ -69,10 +78,12 @@ pub fn spawn_pcb(
     pcb: PcbBundle,
 ) {
     let mesh = pcb.make_mesh(asset_server, materials);
+    let mesh2 = mesh.mesh.clone();
+
     commands.spawn(pcb).with_children(|parent| {
         parent
             .spawn(mesh)
-            .with(bevy_mod_picking::PickableMesh::default());
+            .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(mesh2));
     });
 }
 
