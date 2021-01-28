@@ -14,7 +14,16 @@ fn grid(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let gap = 15.0;
-    let count = 10;
+    let count = 18;
+
+    let m1 = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+        0.05,
+        gap * count as f32,
+    ))));
+    let m2 = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+        gap * count as f32,
+        0.05,
+    ))));
 
     (0..count + 1)
         .map(|i| {
@@ -25,10 +34,7 @@ fn grid(
             ));
             transform.rotate(Quat::from_rotation_x(std::f32::consts::PI / -2.));
             commands.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-                    0.05,
-                    gap * count as f32,
-                )))),
+                mesh: m1.clone(),
                 material: materials.add(Color::rgb(0.07, 0.06, 0.04).into()),
                 transform,
                 ..Default::default()
@@ -41,10 +47,7 @@ fn grid(
             ));
             transform.rotate(Quat::from_rotation_x(std::f32::consts::PI / -2.));
             commands.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-                    gap * count as f32,
-                    0.05,
-                )))),
+                mesh: m2.clone(),
                 material: materials.add(Color::rgb(0.07, 0.06, 0.04).into()),
                 transform,
                 ..Default::default()

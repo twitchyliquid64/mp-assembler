@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_egui::*;
 
+use crate::parts;
+
 pub struct Plugin;
 
 impl bevy::prelude::Plugin for Plugin {
@@ -27,6 +29,11 @@ impl Default for GUIState {
 }
 
 fn ui(
+    commands: &mut Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<GUIState>,
     sel: Res<crate::selection::Selection>,
@@ -68,6 +75,17 @@ fn ui(
                             None => "<none>".to_string(),
                         });
                     });
+                    match sel.handle {
+                        Some(h) => {
+                            ui.horizontal(|ui| {
+                                use crate::gizmo::TranslateHandle;
+                                ui.selectable_label(h == TranslateHandle::X, "X");
+                                ui.selectable_label(h == TranslateHandle::Y, "Y");
+                                ui.selectable_label(h == TranslateHandle::Z, "Z");
+                            });
+                        }
+                        None => (),
+                    }
                 });
 
             egui::CollapsingHeader::new("Spawn")
@@ -94,7 +112,19 @@ fn ui(
                                 .text("mm"),
                         );
                         if ui.add(egui::Button::new("spawn")).clicked {
-                            println!("REEEE");
+                            parts::spawn_screw(
+                                match state.spawn_selected {
+                                    0 => parts::Screw::M3,
+                                    1 => parts::Screw::M5,
+                                    _ => unreachable!(),
+                                },
+                                commands,
+                                &asset_server,
+                                materials,
+                                meshes,
+                                Transform::from_translation(Vec3::new(0., 10., 0.)),
+                                state.spawn_mm as usize,
+                            );
                         };
                     }
                 });

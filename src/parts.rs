@@ -74,24 +74,29 @@ pub enum Geometry {
 pub fn spawn_pcb(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     pcb: PcbBundle,
 ) {
     let mesh = pcb.make_mesh(asset_server, materials);
     let mesh2 = mesh.mesh.clone();
 
     commands.spawn(pcb).with_children(|parent| {
+        crate::gizmo::spawn_translate(parent, asset_server, &mut meshes, &mut materials);
+
         parent
             .spawn(mesh)
             .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(mesh2));
     });
 }
 
-pub fn spawn_m3_screw(
+pub fn spawn_screw(
+    screw: Screw,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    transform: Transform,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut transform: Transform,
     length: usize,
 ) {
     // let texture_handle = asset_server.load("worn-shiny-metal-albedo.png");
@@ -102,12 +107,19 @@ pub fn spawn_m3_screw(
         ..Default::default()
     });
 
+    if let Screw::M5 = screw {
+        transform.scale = Vec3::new(1. / 3. * 5., 1. / 3. * 5., 1.);
+    }
+
     commands
         .spawn(ScrewBundle {
             transform,
+            screw,
             ..ScrewBundle::default()
         })
         .with_children(|parent| {
+            crate::gizmo::spawn_translate(parent, asset_server, &mut meshes, &mut materials);
+
             let transform = Transform::from_translation(Vec3::new(0., 0., length as f32));
             let pan_head = asset_server.load("m3-pan_head.stl");
             parent

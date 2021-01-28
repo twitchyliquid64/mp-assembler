@@ -3,6 +3,7 @@ use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf
 use bevy_egui::EguiContext;
 use bevy_mod_picking::*;
 
+mod gizmo;
 mod grid;
 mod gui;
 mod parts;
@@ -10,12 +11,13 @@ mod selection;
 
 fn interaction_state(
     egui: Res<EguiContext>,
+    sel: Res<selection::Selection>,
     mut cameras: Query<&mut CameraRig>,
     mut pick_state: ResMut<PickState>,
 ) {
     let using_gui = egui.ctx.wants_mouse_input();
     for mut c in cameras.iter_mut() {
-        c.disable = using_gui;
+        c.disable = using_gui || sel.dragging_gizmo;
     }
     pick_state.enabled = !using_gui;
 }
@@ -88,22 +90,14 @@ fn startup(
         commands,
         &asset_server,
         &mut materials,
+        meshes,
         parts::PcbBundle::new_with_stl("train_base.stl"),
     );
-
-    parts::spawn_m3_screw(
-        commands,
-        &asset_server,
-        materials,
-        Transform::from_translation(Vec3::new(0., 10., 0.)),
-        10,
-    );
-    println!("ye");
 }
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .add_resource(Msaa { samples: 8 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PickingPlugin)
         .add_plugin(bevy_stl::StlPlugin)
@@ -111,6 +105,7 @@ fn main() {
         .add_startup_system(startup.system())
         .add_system(interaction_state.system())
         .add_plugin(grid::Plugin)
+        .add_plugin(gizmo::Plugin)
         .add_plugin(selection::Plugin)
         .add_plugin(gui::Plugin)
         .run();
