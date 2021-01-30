@@ -16,35 +16,50 @@ pub enum TranslateHandle {
 
 impl TranslateHandle {
     pub fn intersection_plane(&self, transform: Transform) -> (Primitive3d, Primitive3d) {
-        let normal: Vec3 = match self {
-            TranslateHandle::X => [0., -1., 0.].into(),
-            TranslateHandle::Y => [0., 0., -1.].into(),
-            TranslateHandle::Z => [1., 0., 0.].into(),
+        let (normal, p): (Vec3, Vec3) = match self {
+            TranslateHandle::X => (
+                [0., -1., 0.].into(),
+                Vec3::new(0., transform.translation.y, transform.translation.z),
+            ),
+            TranslateHandle::Y => (
+                [0., 0., -1.].into(),
+                Vec3::new(transform.translation.x, 0., transform.translation.z),
+            ),
+            TranslateHandle::Z => (
+                [1., 0., 0.].into(),
+                Vec3::new(transform.translation.x, transform.translation.y, 0.),
+            ),
         };
 
         (
             Primitive3d::Plane {
-                point: transform.translation,
+                point: p,
                 normal: normal,
             },
             Primitive3d::Plane {
-                point: transform.translation,
+                point: p,
                 normal: normal * Vec3::from([-1., -1., -1.]),
             },
         )
     }
 
-    pub fn calc_position(
-        &self,
-        mut transform: Transform,
-        mut intersection: Intersection,
-    ) -> Transform {
-        let axis = match self {
-            TranslateHandle::X => Vec3::unit_x(),
-            TranslateHandle::Y => Vec3::unit_y(),
-            TranslateHandle::Z => Vec3::unit_z(),
+    pub fn calc_position(&self, mut transform: Transform, intersection: Intersection) -> Transform {
+        let (axis, p): (Vec3, Vec3) = match self {
+            TranslateHandle::X => (
+                Vec3::unit_x(),
+                Vec3::new(0., transform.translation.y, transform.translation.z),
+            ),
+            TranslateHandle::Y => (
+                Vec3::unit_y(),
+                Vec3::new(transform.translation.x, 0., transform.translation.z),
+            ),
+            TranslateHandle::Z => (
+                Vec3::unit_z(),
+                Vec3::new(transform.translation.x, transform.translation.y, 0.),
+            ),
         };
-        transform.translation += (intersection.position() * axis) - (Vec3::splat(10.) * axis);
+
+        transform.translation = p + (intersection.position() - Vec3::splat(10.)) * axis;
         transform
     }
 }
@@ -87,7 +102,7 @@ pub fn spawn_translate(
             transform: Transform {
                 translation: Vec3::new(10.0, 0.0, 0.0),
                 rotation: Quat::from_rotation_y(std::f32::consts::PI / 2.),
-                scale: Vec3::new(2.6, 2.6, 2.6),
+                scale: Vec3::new(2.6, 2.6, 1.),
             },
             visible: Visible {
                 is_visible: false,
@@ -122,7 +137,7 @@ pub fn spawn_translate(
             transform: Transform {
                 translation: Vec3::new(0.0, 10.0, 0.0),
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 2.),
-                scale: Vec3::new(2.6, 2.6, 2.6),
+                scale: Vec3::new(2.6, 2.6, 1.),
             },
             visible: Visible {
                 is_visible: false,
@@ -158,7 +173,7 @@ pub fn spawn_translate(
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 10.0),
                 rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.),
-                scale: Vec3::new(2.6, 2.6, 2.6),
+                scale: Vec3::new(2.6, 2.6, 1.),
             },
             visible: Visible {
                 is_visible: false,

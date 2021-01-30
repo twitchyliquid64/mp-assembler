@@ -1,7 +1,18 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::Camera};
 use bevy_mod_picking::*;
 
 use crate::gizmo::TranslateHandle;
+
+#[derive(Default, Debug)]
+pub struct Selectable;
+
+#[derive(Default, Debug)]
+pub struct Selection {
+    pub entity: Option<Entity>,
+    pub handle: Option<TranslateHandle>,
+    pub current_transform: Transform,
+    pub dragging_gizmo: bool,
+}
 
 pub struct Plugin;
 
@@ -19,12 +30,18 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
+#[derive(Debug)]
+struct ParentClickedEvent(pub Entity, pub Option<TranslateHandle>);
+
+#[derive(Debug)]
+struct ReleaseEvent;
+
 // get_picks emits clicked + released events based on mouse movement and
 // what PickableMesh is under the cursor.
 fn get_picks(
     pick_state: Res<PickState>,
     mouse_inputs: Res<Input<MouseButton>>,
-    mut parent_query: Query<(&Parent, Option<&TranslateHandle>)>,
+    parent_query: Query<(&Parent, Option<&TranslateHandle>)>,
     mut ev_clicked: ResMut<Events<ParentClickedEvent>>,
     mut ev_released: ResMut<Events<ReleaseEvent>>,
 ) {
@@ -40,6 +57,9 @@ fn get_picks(
     }
 }
 
+#[derive(Debug)]
+struct GizmoDragEvent(pub Entity, pub Transform, pub TranslateHandle);
+
 fn update_selection(
     ev_clicked: Res<Events<ParentClickedEvent>>,
     mut clicked_reader: Local<EventReader<ParentClickedEvent>>,
@@ -51,8 +71,6 @@ fn update_selection(
 
     mut ev_dragging: ResMut<Events<GizmoDragEvent>>,
 ) {
-    let mut some_mouse_click = false;
-
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
         if let Ok(transform) = selection_query.get(ev.0) {
@@ -63,15 +81,13 @@ fn update_selection(
         } else {
             *selection = Selection::default();
         }
-        some_mouse_click = true;
     }
     for ev in released_reader.iter(&ev_released) {
         selection.dragging_gizmo = false;
         selection.handle = None;
-        some_mouse_click = true;
     }
 
-    if !some_mouse_click && selection.dragging_gizmo {
+    if selection.dragging_gizmo {
         ev_dragging.send(GizmoDragEvent(
             selection.entity.unwrap(),
             selection.current_transform,
@@ -80,7 +96,8 @@ fn update_selection(
     }
 }
 
-use bevy::render::camera::Camera;
+#[derive(Debug)]
+struct EntityDragEvent(pub Entity, pub Transform);
 
 fn compute_drag(
     ev_dragging: Res<Events<GizmoDragEvent>>,
@@ -135,39 +152,3 @@ fn update_from_drag(
         }
     }
 }
-
-#[derive(Debug)]
-struct ParentClickedEvent(pub Entity, pub Option<TranslateHandle>);
-
-#[derive(Debug)]
-struct ReleaseEvent;
-
-#[derive(Debug)]
-struct GizmoDragEvent(pub Entity, pub Transform, pub TranslateHandle);
-
-#[derive(Debug)]
-struct EntityDragEvent(pub Entity, pub Transform);
-
-#[derive(Default, Debug)]
-pub struct Selectable;
-
-#[derive(Default, Debug)]
-pub struct Selection {
-    pub entity: Option<Entity>,
-    pub handle: Option<TranslateHandle>,
-    pub current_transform: Transform,
-    pub dragging_gizmo: bool,
-}
-
-// fn writeback_ui(
-//     data: Res<Inspector>,
-//     selection: Res<Selection>,
-//     mut query: Query<&mut Transform, With<Selectable>>,
-// ) {
-//     // Updates component values from the UI.
-//     if let Some(eid) = selection.entity {
-//         if let Ok(mut t) = query.get_mut(eid) {
-//             *t = data.transform;
-//         }
-//     }
-// }

@@ -18,7 +18,8 @@ impl bevy::prelude::Plugin for Plugin {
 struct GUIState {
     pub spawn_selected: usize,
     pub spawn_mm: u32,
-    pub cur_transform: Transform,
+    pub translation: Vec3,
+    pub rotation: Vec4,
     pub cur_axis: Option<TranslateHandle>,
 }
 
@@ -27,7 +28,8 @@ impl Default for GUIState {
         Self {
             spawn_selected: 0,
             spawn_mm: 12,
-            cur_transform: Transform::default(),
+            translation: Vec3::default(),
+            rotation: Vec4::default(),
             cur_axis: None,
         }
     }
@@ -36,8 +38,8 @@ impl Default for GUIState {
 fn ui(
     commands: &mut Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<GUIState>,
@@ -50,7 +52,8 @@ fn ui(
     let selected = match sel.entity {
         Some(e) => {
             if let Ok(e) = sel_query.get_mut(e) {
-                state.cur_transform = e.0.clone();
+                state.translation = e.0.translation.clone();
+                state.rotation = e.0.rotation.into();
                 Some(e)
             } else {
                 None
@@ -64,7 +67,9 @@ fn ui(
 
     let ctx = &mut egui_context.ctx;
     let screen = ctx.available_rect();
-    let rt = egui::Rect::from_min_max(egui::pos2(screen.right() - 256.0, 0.), screen.max);
+    let rt = egui::Rect::from_min_max(egui::pos2(screen.right() - 292.0, 0.), screen.max);
+
+    let state = &mut state;
     egui::Window::new("mp-assembler")
         .fixed_rect(rt)
         .show(ctx, |ui| {
@@ -109,17 +114,22 @@ fn ui(
                         let mut dummy = 0.;
                         use bevy_egui::egui::Widget;
                         let amt = egui::widgets::DragValue::f32(match state.cur_axis {
-                            Some(TranslateHandle::X) => &mut state.cur_transform.translation.x,
-                            Some(TranslateHandle::Y) => &mut state.cur_transform.translation.y,
-                            Some(TranslateHandle::Z) => &mut state.cur_transform.translation.z,
+                            Some(TranslateHandle::X) => &mut state.translation.x,
+                            Some(TranslateHandle::Y) => &mut state.translation.y,
+                            Some(TranslateHandle::Z) => &mut state.translation.z,
                             _ => &mut dummy,
                         })
                         .ui(ui);
-                        if amt.active || amt.lost_kb_focus {
-                            if let Some(mut selected) = selected {
-                                *selected.0 = state.cur_transform.clone();
-                            }
-                        };
+                    });
+
+                    ui.label("Rotation");
+                    ui.horizontal(|ui| {
+                        ui.label(" X:");
+                        ui.drag_angle(&mut state.rotation.x);
+                        ui.label(" Y: ");
+                        ui.drag_angle(&mut state.rotation.y);
+                        ui.label(" Z: ");
+                        ui.drag_angle(&mut state.rotation.z);
                     });
                 });
 
@@ -164,4 +174,13 @@ fn ui(
                     }
                 });
         });
+
+    if let Some(mut selected) = selected {
+        selected.0.translation = state.translation.clone();
+        let rotation: Quat = state.rotation.clone().into();
+        selected.0.rotation = rotation.normalize();
+        if rotation.is_nan() {
+            selected.0.rotation = Quat::identity();
+        }
+    }
 }
