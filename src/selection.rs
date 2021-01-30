@@ -11,10 +11,16 @@ impl bevy::prelude::Plugin for Plugin {
             .add_event::<ParentClickedEvent>()
             .add_event::<ReleaseEvent>()
             .add_system(get_picks.system())
-            .add_system(update_selection.system());
+            .add_event::<GizmoDragEvent>()
+            .add_system(update_selection.system())
+            .add_event::<EntityDragEvent>()
+            .add_system(compute_drag.system())
+            .add_system(update_from_drag.system());
     }
 }
 
+// get_picks emits clicked + released events based on mouse movement and
+// what PickableMesh is under the cursor.
 fn get_picks(
     pick_state: Res<PickState>,
     mouse_inputs: Res<Input<MouseButton>>,
@@ -42,20 +48,91 @@ fn update_selection(
 
     mut selection: ResMut<Selection>,
     selection_query: Query<&Transform, With<Selectable>>,
+
+    mut ev_dragging: ResMut<Events<GizmoDragEvent>>,
 ) {
+    let mut some_mouse_click = false;
+
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
         if let Ok(transform) = selection_query.get(ev.0) {
             selection.entity = Some(ev.0);
             selection.handle = ev.1;
             selection.dragging_gizmo = ev.1.is_some();
-        // data.transform = transform.clone();
+            selection.current_transform = transform.clone();
         } else {
             *selection = Selection::default();
         }
+        some_mouse_click = true;
     }
     for ev in released_reader.iter(&ev_released) {
         selection.dragging_gizmo = false;
+        selection.handle = None;
+        some_mouse_click = true;
+    }
+
+    if !some_mouse_click && selection.dragging_gizmo {
+        ev_dragging.send(GizmoDragEvent(
+            selection.entity.unwrap(),
+            selection.current_transform,
+            selection.handle.unwrap(),
+        ));
+    }
+}
+
+use bevy::render::camera::Camera;
+
+fn compute_drag(
+    ev_dragging: Res<Events<GizmoDragEvent>>,
+    mut drag_reader: Local<EventReader<GizmoDragEvent>>,
+    ev_cursor: Res<Events<CursorMoved>>,
+    mut cursor_reader: Local<EventReader<CursorMoved>>,
+
+    windows: Res<Windows>,
+    mut camera_query: Query<(&GlobalTransform, &Camera)>,
+
+    mut ev_entity_dragging: ResMut<Events<EntityDragEvent>>,
+) {
+    use bevy_mod_raycast::{Primitive3d, RayCastSource};
+
+    for ev in drag_reader.iter(&ev_dragging) {
+        let current_transform = ev.1;
+        for event in cursor_reader.iter(&ev_cursor) {
+            for (global_transform, camera) in &mut camera_query.iter_mut() {
+                let p: [f32; 2] = event.position.into();
+                let source: RayCastSource<()> = RayCastSource::new().with_screenspace_ray(
+                    p.into(),
+                    &windows,
+                    camera,
+                    global_transform,
+                );
+
+                let (hit_plane_t, hit_plane_b) = ev.2.intersection_plane(current_transform);
+                let cast_result = if let Some(i) = source.intersect_primitive(hit_plane_t) {
+                    Some(i)
+                } else {
+                    source.intersect_primitive(hit_plane_b)
+                };
+                if let Some(i) = cast_result {
+                    ev_entity_dragging.send(EntityDragEvent(
+                        ev.0,
+                        ev.2.calc_position(current_transform, i),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+fn update_from_drag(
+    ev_dragging: Res<Events<EntityDragEvent>>,
+    mut drag_reader: Local<EventReader<EntityDragEvent>>,
+    mut selection_query: Query<&mut Transform, With<Selectable>>,
+) {
+    for ev in drag_reader.iter(&ev_dragging) {
+        if let Ok(mut transform) = selection_query.get_mut(ev.0) {
+            *transform = ev.1;
+        }
     }
 }
 
@@ -65,6 +142,12 @@ struct ParentClickedEvent(pub Entity, pub Option<TranslateHandle>);
 #[derive(Debug)]
 struct ReleaseEvent;
 
+#[derive(Debug)]
+struct GizmoDragEvent(pub Entity, pub Transform, pub TranslateHandle);
+
+#[derive(Debug)]
+struct EntityDragEvent(pub Entity, pub Transform);
+
 #[derive(Default, Debug)]
 pub struct Selectable;
 
@@ -72,6 +155,7 @@ pub struct Selectable;
 pub struct Selection {
     pub entity: Option<Entity>,
     pub handle: Option<TranslateHandle>,
+    pub current_transform: Transform,
     pub dragging_gizmo: bool,
 }
 

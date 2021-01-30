@@ -1,5 +1,6 @@
 use crate::selection::{Selectable, Selection};
 use bevy::prelude::*;
+use bevy_mod_raycast::{Intersection, Primitive3d};
 
 /// Component that is present on all gizmo children.
 #[derive(Debug, Default)]
@@ -11,6 +12,41 @@ pub enum TranslateHandle {
     X,
     Y,
     Z,
+}
+
+impl TranslateHandle {
+    pub fn intersection_plane(&self, transform: Transform) -> (Primitive3d, Primitive3d) {
+        let normal: Vec3 = match self {
+            TranslateHandle::X => [0., -1., 0.].into(),
+            TranslateHandle::Y => [0., 0., -1.].into(),
+            TranslateHandle::Z => [1., 0., 0.].into(),
+        };
+
+        (
+            Primitive3d::Plane {
+                point: transform.translation,
+                normal: normal,
+            },
+            Primitive3d::Plane {
+                point: transform.translation,
+                normal: normal * Vec3::from([-1., -1., -1.]),
+            },
+        )
+    }
+
+    pub fn calc_position(
+        &self,
+        mut transform: Transform,
+        mut intersection: Intersection,
+    ) -> Transform {
+        let axis = match self {
+            TranslateHandle::X => Vec3::unit_x(),
+            TranslateHandle::Y => Vec3::unit_y(),
+            TranslateHandle::Z => Vec3::unit_z(),
+        };
+        transform.translation += (intersection.position() * axis) - (Vec3::splat(10.) * axis);
+        transform
+    }
 }
 
 pub struct Plugin;

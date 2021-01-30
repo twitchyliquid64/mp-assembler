@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::*;
 
+use crate::gizmo::TranslateHandle;
 use crate::parts;
 
 pub struct Plugin;
@@ -17,6 +18,8 @@ impl bevy::prelude::Plugin for Plugin {
 struct GUIState {
     pub spawn_selected: usize,
     pub spawn_mm: u32,
+    pub cur_transform: Transform,
+    pub cur_axis: Option<TranslateHandle>,
 }
 
 impl Default for GUIState {
@@ -24,6 +27,8 @@ impl Default for GUIState {
         Self {
             spawn_selected: 0,
             spawn_mm: 12,
+            cur_transform: Transform::default(),
+            cur_axis: None,
         }
     }
 }
@@ -45,6 +50,7 @@ fn ui(
     let selected = match sel.entity {
         Some(e) => {
             if let Ok(e) = sel_query.get_mut(e) {
+                state.cur_transform = e.0.clone();
                 Some(e)
             } else {
                 None
@@ -52,6 +58,9 @@ fn ui(
         }
         None => None,
     };
+    if let Some(h) = sel.handle {
+        state.cur_axis = Some(h);
+    }
 
     let ctx = &mut egui_context.ctx;
     let screen = ctx.available_rect();
@@ -75,17 +84,43 @@ fn ui(
                             None => "<none>".to_string(),
                         });
                     });
-                    match sel.handle {
-                        Some(h) => {
-                            ui.horizontal(|ui| {
-                                use crate::gizmo::TranslateHandle;
-                                ui.selectable_label(h == TranslateHandle::X, "X");
-                                ui.selectable_label(h == TranslateHandle::Y, "Y");
-                                ui.selectable_label(h == TranslateHandle::Z, "Z");
-                            });
+                    ui.horizontal(|ui| {
+                        ui.label("Position:");
+                        if ui
+                            .selectable_label(state.cur_axis == Some(TranslateHandle::X), "X")
+                            .clicked
+                        {
+                            state.cur_axis = Some(TranslateHandle::X);
                         }
-                        None => (),
-                    }
+                        if ui
+                            .selectable_label(state.cur_axis == Some(TranslateHandle::Y), "Y")
+                            .clicked
+                        {
+                            state.cur_axis = Some(TranslateHandle::Y);
+                        }
+                        if ui
+                            .selectable_label(state.cur_axis == Some(TranslateHandle::Z), "Z")
+                            .clicked
+                        {
+                            state.cur_axis = Some(TranslateHandle::Z);
+                        }
+                        ui.label("   ");
+
+                        let mut dummy = 0.;
+                        use bevy_egui::egui::Widget;
+                        let amt = egui::widgets::DragValue::f32(match state.cur_axis {
+                            Some(TranslateHandle::X) => &mut state.cur_transform.translation.x,
+                            Some(TranslateHandle::Y) => &mut state.cur_transform.translation.y,
+                            Some(TranslateHandle::Z) => &mut state.cur_transform.translation.z,
+                            _ => &mut dummy,
+                        })
+                        .ui(ui);
+                        if amt.active || amt.lost_kb_focus {
+                            if let Some(mut selected) = selected {
+                                *selected.0 = state.cur_transform.clone();
+                            }
+                        };
+                    });
                 });
 
             egui::CollapsingHeader::new("Spawn")
