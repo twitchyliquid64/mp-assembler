@@ -1,5 +1,16 @@
 pub use crate::selection::Selectable;
 use bevy::prelude::*;
+use maker_panel::{Panel, SpecErr};
+
+use crate::gui::SpawnPanelEvent;
+
+pub struct Plugin;
+
+impl bevy::prelude::Plugin for Plugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system(spawner.system());
+    }
+}
 
 /// Component that is present on all screw entities
 #[derive(Debug)]
@@ -21,6 +32,38 @@ pub struct ScrewBundle {
     selectable: Selectable,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+}
+
+pub struct PanelInfo {
+    parsed: Option<Panel<'static>>,
+    err: Option<SpecErr>,
+    path: String,
+}
+
+impl PanelInfo {
+    pub fn new(path: String, data: String) -> Self {
+        let mut panel = Panel::new();
+        match panel.push_spec(&data) {
+            Ok(_) => Self {
+                parsed: Some(panel),
+                err: None,
+                path,
+            },
+            Err(e) => Self {
+                parsed: None,
+                err: Some(e),
+                path,
+            },
+        }
+    }
+
+    pub fn name(&self) -> String {
+        self.path.split("/").last().unwrap().to_string()
+    }
+
+    pub fn well_formed(&self) -> bool {
+        self.parsed.is_some()
+    }
 }
 
 /// Component that is present on all PCB entities
@@ -50,18 +93,13 @@ impl PcbBundle {
         }
     }
 
-    fn make_mesh(
-        &self,
-        asset_server: &Res<AssetServer>,
-        materials: &mut ResMut<Assets<StandardMaterial>>,
-    ) -> PbrBundle {
-        PbrBundle {
-            mesh: match self.geometry {
-                Geometry::Stl(s) => asset_server.load(s),
-            },
-            material: materials.add(Color::rgb(0.2, 0.5, 0.2).into()),
-            transform: Transform::identity(),
-            ..Default::default()
+    pub fn new_with_spec(path: String) -> Self {
+        Self {
+            pcb: Pcb::default(),
+            selectable: Selectable::default(),
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            geometry: Geometry::Spec(path),
         }
     }
 }
@@ -69,23 +107,24 @@ impl PcbBundle {
 #[derive(Debug, Clone)]
 pub enum Geometry {
     Stl(&'static str),
+    Spec(String),
 }
 
 pub fn spawn_pcb(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
     pcb: PcbBundle,
+    geo: PbrBundle,
 ) {
-    let mesh = pcb.make_mesh(asset_server, materials);
-    let mesh2 = mesh.mesh.clone();
+    let mesh2 = geo.mesh.clone();
 
     commands.spawn(pcb).with_children(|parent| {
         crate::gizmo::spawn_translate(parent, asset_server, &mut meshes, &mut materials);
 
         parent
-            .spawn(mesh)
+            .spawn(geo)
             .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(mesh2));
     });
 }
@@ -145,4 +184,96 @@ pub fn spawn_screw(
                     );
             }
         });
+}
+
+fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
+    use bevy::render::{
+        mesh::{Indices, Mesh, VertexAttributeValues},
+        pipeline::PrimitiveTopology,
+    };
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+
+    let (verts, inds) = tessellation;
+    let v_conv = |idx: u16| {
+        let v = verts[idx as usize];
+        [v[0] as f32, v[1] as f32, v[2] as f32]
+    };
+
+    let mut vertexes = Vec::with_capacity(inds.len());
+    let mut normals = Vec::with_capacity(inds.len());
+    let mut indices = Vec::with_capacity(inds.len());
+
+    for (i, tri) in inds.chunks_exact(3).enumerate() {
+        let verts = [v_conv(tri[0]), v_conv(tri[1]), v_conv(tri[2])];
+        let u = [
+            verts[1][0] - verts[0][0],
+            verts[1][1] - verts[0][1],
+            verts[1][2] - verts[0][2],
+        ];
+        let v = [
+            verts[2][0] - verts[0][0],
+            verts[2][1] - verts[0][1],
+            verts[2][2] - verts[0][2],
+        ];
+        let normal = [
+            (u[1] * v[2]) - (u[2] * v[1]),
+            (u[2] * v[0]) - (u[0] * v[2]),
+            (u[0] * v[1]) - (u[1] * v[0]),
+        ];
+
+        normals.push(normal);
+        normals.push(normal);
+        normals.push(normal);
+
+        for j in 0..3 {
+            vertexes.push(verts[j]);
+            indices.push((i * 3 + j) as u16);
+        }
+    }
+
+    let uvs = vec![[0.0, 0.0, 0.0]; vertexes.len()];
+    mesh.set_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        VertexAttributeValues::Float3(vertexes),
+    );
+    mesh.set_attribute(
+        Mesh::ATTRIBUTE_NORMAL,
+        VertexAttributeValues::Float3(normals),
+    );
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float3(uvs));
+    mesh.set_indices(Some(Indices::U16(indices)));
+
+    mesh
+}
+
+fn spawner(
+    ev_spawn: Res<Events<SpawnPanelEvent>>,
+    mut spawn_reader: Local<EventReader<SpawnPanelEvent>>,
+
+    mut commands: &mut Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for ev in spawn_reader.iter(&ev_spawn) {
+        let panel_info = unsafe { &super::gui::LIBRARY.as_ref().unwrap()[ev.0] };
+        let mesh = meshes.add(build_panel_mesh(
+            panel_info.parsed.as_ref().unwrap().tessellate_3d().unwrap(),
+        ));
+        let material = materials.add(Color::rgb(0.2, 0.5, 0.2).into());
+
+        spawn_pcb(
+            &mut commands,
+            &asset_server,
+            &mut materials,
+            &mut meshes,
+            PcbBundle::new_with_spec(panel_info.path.clone()),
+            PbrBundle {
+                mesh,
+                material,
+                transform: Transform::identity(),
+                ..Default::default()
+            },
+        )
+    }
 }

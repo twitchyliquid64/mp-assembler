@@ -3,8 +3,46 @@ use bevy::prelude::*;
 use bevy_mod_raycast::{Intersection, Primitive3d};
 
 /// Component that is present on all gizmo children.
-#[derive(Debug, Default)]
-pub struct Gizmo;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Gizmo {
+    X,
+    Y,
+    Z,
+}
+
+impl Gizmo {
+    fn arm_transform(&self) -> (Vec3, Quat) {
+        match self {
+            Gizmo::X => (
+                Vec3::new(4.5, 0.0, 0.0),
+                Quat::from_rotation_y(std::f32::consts::PI / 2.),
+            ),
+            Gizmo::Y => (
+                Vec3::new(0.0, 4.5, 0.0),
+                Quat::from_rotation_y(-std::f32::consts::PI / 2.)
+                    .mul_quat(Quat::from_rotation_x(-std::f32::consts::PI / 2.)),
+            ),
+            Gizmo::Z => (Vec3::new(0.0, 0.0, 4.5), Quat::identity()),
+        }
+    }
+
+    fn handle_transform(&self) -> (Vec3, Quat) {
+        match self {
+            Gizmo::X => (
+                Vec3::new(10.0, 0.0, 0.0),
+                Quat::from_rotation_y(std::f32::consts::PI / 2.),
+            ),
+            Gizmo::Y => (
+                Vec3::new(0.0, 10.0, 0.0),
+                Quat::from_rotation_x(-std::f32::consts::PI / 2.),
+            ),
+            Gizmo::Z => (
+                Vec3::new(0.0, 0.0, 10.0),
+                Quat::from_rotation_z(std::f32::consts::PI / 2.),
+            ),
+        }
+    }
+}
 
 /// Component that is present on translate gizmo handles.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -68,16 +106,39 @@ pub struct Plugin;
 
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(gizmo_visibility.system());
+        app.add_system(gizmo_update_visibility.system())
+            .add_system_to_stage(stage::POST_UPDATE, gizmo_update_pos.system());
     }
 }
 
-fn gizmo_visibility(
+fn gizmo_update_visibility(
     selection: Res<Selection>,
     mut gizmos: Query<(&mut Visible, &Parent), With<Gizmo>>,
 ) {
     for (mut vis, parent) in gizmos.iter_mut() {
         vis.is_visible = Some(parent.0) == selection.entity;
+    }
+}
+
+fn gizmo_update_pos(
+    mut gizmos: Query<(
+        &mut GlobalTransform,
+        &Parent,
+        &Gizmo,
+        Option<&TranslateHandle>,
+    )>,
+    mut parent_query: Query<&Transform, Without<Gizmo>>,
+) {
+    for (mut transform, parent, gizmo, handle) in gizmos.iter_mut() {
+        let (t, r) = if handle.is_some() {
+            gizmo.handle_transform()
+        } else {
+            gizmo.arm_transform()
+        };
+        transform.rotation = r;
+        if let Ok(base) = parent_query.get(parent.0) {
+            transform.translation = t + base.translation;
+        }
     }
 }
 
@@ -111,7 +172,7 @@ pub fn spawn_translate(
             ..Default::default()
         })
         .with(TranslateHandle::X)
-        .with(Gizmo)
+        .with(Gizmo::X)
         .with(bevy_mod_picking::PickableMesh::default())
         .with(Selectable)
         // X arm
@@ -129,7 +190,7 @@ pub fn spawn_translate(
             },
             ..Default::default()
         })
-        .with(Gizmo)
+        .with(Gizmo::X)
         // Y handle
         .spawn(PbrBundle {
             mesh: cone.clone(),
@@ -146,7 +207,7 @@ pub fn spawn_translate(
             ..Default::default()
         })
         .with(TranslateHandle::Y)
-        .with(Gizmo)
+        .with(Gizmo::Y)
         .with(bevy_mod_picking::PickableMesh::default())
         .with(Selectable)
         // Y arm
@@ -165,7 +226,7 @@ pub fn spawn_translate(
             },
             ..Default::default()
         })
-        .with(Gizmo)
+        .with(Gizmo::Y)
         // Z handle
         .spawn(PbrBundle {
             mesh: cone.clone(),
@@ -182,7 +243,7 @@ pub fn spawn_translate(
             ..Default::default()
         })
         .with(TranslateHandle::Z)
-        .with(Gizmo)
+        .with(Gizmo::Z)
         .with(bevy_mod_picking::PickableMesh::default())
         .with(Selectable)
         // Z arm
@@ -200,7 +261,7 @@ pub fn spawn_translate(
             },
             ..Default::default()
         })
-        .with(Gizmo);
+        .with(Gizmo::Z);
 }
 
 use bevy::render::mesh::Indices;

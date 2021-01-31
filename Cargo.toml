@@ -13,3 +13,6 @@ bevy_mod_picking = "0.3"
 genmesh = "0.6"
 
 bevy_mod_raycast = { git = "https://github.com/aevyrie/bevy_mod_raycast", branch = "master" }
+
+structopt = "0.3"
+maker-panel = "0.8.1"

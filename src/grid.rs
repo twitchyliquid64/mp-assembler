@@ -13,8 +13,14 @@ fn grid(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    #[cfg(debug_assertions)]
     let gap = 15.0;
-    let count = 18;
+    #[cfg(not(debug_assertions))]
+    let gap = 5.0;
+    #[cfg(debug_assertions)]
+    let count = 16;
+    #[cfg(not(debug_assertions))]
+    let count = 48;
 
     let m1 = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
         0.05,

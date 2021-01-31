@@ -3,6 +3,9 @@ use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf
 use bevy_egui::EguiContext;
 use bevy_mod_picking::*;
 
+use maker_panel::Panel;
+use structopt::StructOpt;
+
 mod gizmo;
 mod grid;
 mod gui;
@@ -84,18 +87,41 @@ fn startup(
             });
             cb.with(PickSource::default());
         });
+}
 
-    // Actual PCB
-    parts::spawn_pcb(
-        commands,
-        &asset_server,
-        &mut materials,
-        meshes,
-        parts::PcbBundle::new_with_stl("train_base.stl"),
-    );
+#[derive(Debug, StructOpt, Clone)]
+#[structopt(name = "mp-assembler", about = "Visualize maker-panel geometry")]
+struct Opt {
+    spec_dirs: Vec<String>,
+}
+
+fn load_specs(spec_dirs: &Vec<String>) -> Result<Vec<parts::PanelInfo>, std::io::Error> {
+    let mut out = Vec::new();
+
+    for dir in spec_dirs {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            if entry.path().extension().and_then(std::ffi::OsStr::to_str) == Some("spec") {
+                let spec = parts::PanelInfo::new(
+                    entry.path().to_str().unwrap().to_string(),
+                    String::from_utf8_lossy(&std::fs::read(entry.path())?).to_string(),
+                );
+                out.push(spec);
+            }
+        }
+    }
+
+    Ok(out)
 }
 
 fn main() {
+    let args = Opt::from_args();
+
+    let specs = load_specs(&args.spec_dirs).unwrap();
+    unsafe {
+        gui::LIBRARY = Some(specs);
+    }
+
     App::build()
         .add_resource(Msaa { samples: 8 })
         .add_plugins(DefaultPlugins)
@@ -108,5 +134,6 @@ fn main() {
         .add_plugin(gizmo::Plugin)
         .add_plugin(selection::Plugin)
         .add_plugin(gui::Plugin)
+        .add_plugin(parts::Plugin)
         .run();
 }

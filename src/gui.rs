@@ -2,17 +2,23 @@ use bevy::prelude::*;
 use bevy_egui::*;
 
 use crate::gizmo::TranslateHandle;
-use crate::parts;
+use crate::parts::{self, PanelInfo};
 
 pub struct Plugin;
 
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(EguiPlugin)
+            .add_event::<SpawnPanelEvent>()
             .add_resource(GUIState::default())
             .add_system(ui.system());
     }
 }
+
+pub static mut LIBRARY: Option<Vec<PanelInfo>> = None;
+
+#[derive(Debug)]
+pub struct SpawnPanelEvent(pub usize);
 
 #[derive(Debug)]
 struct GUIState {
@@ -48,6 +54,8 @@ fn ui(
         (&mut Transform, Option<&crate::parts::Screw>),
         With<crate::selection::Selectable>,
     >,
+
+    mut spawner: ResMut<Events<SpawnPanelEvent>>,
 ) {
     let selected = match sel.entity {
         Some(e) => {
@@ -67,7 +75,10 @@ fn ui(
 
     let ctx = &mut egui_context.ctx;
     let screen = ctx.available_rect();
-    let rt = egui::Rect::from_min_max(egui::pos2(screen.right() - 292.0, 0.), screen.max);
+    let rt = egui::Rect::from_min_max(
+        egui::pos2(screen.right() - 292.0, 0.),
+        screen.max - egui::Vec2::new(10., 10.),
+    );
 
     let state = &mut state;
     egui::Window::new("mp-assembler")
@@ -131,6 +142,13 @@ fn ui(
                         ui.label(" Z: ");
                         ui.drag_angle(&mut state.rotation.z);
                     });
+
+                    if ui.button("Delete").clicked {
+                        if let Some(sel) = sel.entity {
+                            state.cur_axis = None;
+                            commands.despawn_recursive(sel);
+                        }
+                    }
                 });
 
             egui::CollapsingHeader::new("Spawn")
@@ -150,6 +168,7 @@ fn ui(
                             state.spawn_selected = 2;
                         };
                     });
+
                     if state.spawn_selected < 2 {
                         ui.add(
                             egui::Slider::u32(&mut state.spawn_mm, 6..=60)
@@ -171,6 +190,27 @@ fn ui(
                                 state.spawn_mm as usize,
                             );
                         };
+                    } else {
+                        let tmp = unsafe { LIBRARY.as_ref() };
+                        if let Some(panels) = tmp {
+                            for (i, panel) in panels.iter().enumerate() {
+                                ui.columns(2, |columns| {
+                                    columns[0].label(format!("{}", panel.name()));
+                                    columns[1].with_layout(
+                                        egui::Layout::top_down(egui::Align::Max),
+                                        |ui| {
+                                            if panel.well_formed() {
+                                                if ui.small_button("+").clicked {
+                                                    spawner.send(SpawnPanelEvent(i));
+                                                }
+                                            } else {
+                                                ui.colored_label(egui::Color32::RED, ":/");
+                                            }
+                                        },
+                                    );
+                                });
+                            }
+                        }
                     }
                 });
         });
