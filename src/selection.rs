@@ -82,7 +82,7 @@ fn update_selection(
             *selection = Selection::default();
         }
     }
-    for ev in released_reader.iter(&ev_released) {
+    for _ev in released_reader.iter(&ev_released) {
         selection.dragging_gizmo = false;
         selection.handle = None;
     }
@@ -110,7 +110,7 @@ fn compute_drag(
 
     mut ev_entity_dragging: ResMut<Events<EntityDragEvent>>,
 ) {
-    use bevy_mod_raycast::{Primitive3d, RayCastSource};
+    use bevy_mod_raycast::RayCastSource;
 
     for ev in drag_reader.iter(&ev_dragging) {
         let current_transform = ev.1;

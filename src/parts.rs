@@ -76,6 +76,7 @@ pub struct Pcb;
 pub struct PcbBundle {
     pcb: Pcb,
     selectable: Selectable,
+    pub convex_hull: bool,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 
@@ -83,18 +84,9 @@ pub struct PcbBundle {
 }
 
 impl PcbBundle {
-    pub fn new_with_stl(path: &'static str) -> Self {
+    pub fn new_with_spec(path: String, convex_hull: bool) -> Self {
         Self {
-            pcb: Pcb::default(),
-            selectable: Selectable::default(),
-            transform: Transform::default(),
-            global_transform: GlobalTransform::default(),
-            geometry: Geometry::Stl(path),
-        }
-    }
-
-    pub fn new_with_spec(path: String) -> Self {
-        Self {
+            convex_hull,
             pcb: Pcb::default(),
             selectable: Selectable::default(),
             transform: Transform::default(),
@@ -112,7 +104,6 @@ pub enum Geometry {
 
 pub fn spawn_pcb(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     pcb: PcbBundle,
@@ -121,7 +112,7 @@ pub fn spawn_pcb(
     let mesh2 = geo.mesh.clone();
 
     commands.spawn(pcb).with_children(|parent| {
-        crate::gizmo::spawn_translate(parent, asset_server, &mut meshes, &mut materials);
+        crate::gizmo::spawn_translate(parent, &mut meshes, &mut materials);
 
         parent
             .spawn(geo)
@@ -157,7 +148,7 @@ pub fn spawn_screw(
             ..ScrewBundle::default()
         })
         .with_children(|parent| {
-            crate::gizmo::spawn_translate(parent, asset_server, &mut meshes, &mut materials);
+            crate::gizmo::spawn_translate(parent, &mut meshes, &mut materials);
 
             let transform = Transform::from_translation(Vec3::new(0., 0., length as f32));
             let pan_head = asset_server.load("m3-pan_head.stl");
@@ -188,7 +179,7 @@ pub fn spawn_screw(
 
 fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
     use bevy::render::{
-        mesh::{Indices, Mesh, VertexAttributeValues},
+        mesh::{Indices, VertexAttributeValues},
         pipeline::PrimitiveTopology,
     };
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -251,12 +242,12 @@ fn spawner(
     mut spawn_reader: Local<EventReader<SpawnPanelEvent>>,
 
     mut commands: &mut Commands,
-    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ev in spawn_reader.iter(&ev_spawn) {
-        let panel_info = unsafe { &super::gui::LIBRARY.as_ref().unwrap()[ev.0] };
+        let panel_info = unsafe { &mut super::gui::LIBRARY.as_mut().unwrap()[ev.0] };
+        panel_info.parsed.as_mut().unwrap().convex_hull(ev.1);
         let mesh = meshes.add(build_panel_mesh(
             panel_info.parsed.as_ref().unwrap().tessellate_3d().unwrap(),
         ));
@@ -264,10 +255,9 @@ fn spawner(
 
         spawn_pcb(
             &mut commands,
-            &asset_server,
             &mut materials,
             &mut meshes,
-            PcbBundle::new_with_spec(panel_info.path.clone()),
+            PcbBundle::new_with_spec(panel_info.path.clone(), ev.1),
             PbrBundle {
                 mesh,
                 material,

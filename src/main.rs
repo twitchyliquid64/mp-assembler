@@ -3,7 +3,6 @@ use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf
 use bevy_egui::EguiContext;
 use bevy_mod_picking::*;
 
-use maker_panel::Panel;
 use structopt::StructOpt;
 
 mod gizmo;
@@ -25,12 +24,7 @@ fn interaction_state(
     pick_state.enabled = !using_gui;
 }
 
-fn startup(
-    commands: &mut Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn startup(commands: &mut Commands) {
     commands
         // lights
         .spawn(LightBundle {

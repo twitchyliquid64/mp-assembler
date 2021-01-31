@@ -127,7 +127,7 @@ fn gizmo_update_pos(
         &Gizmo,
         Option<&TranslateHandle>,
     )>,
-    mut parent_query: Query<&Transform, Without<Gizmo>>,
+    parent_query: Query<&Transform, Without<Gizmo>>,
 ) {
     for (mut transform, parent, gizmo, handle) in gizmos.iter_mut() {
         let (t, r) = if handle.is_some() {
@@ -144,8 +144,7 @@ fn gizmo_update_pos(
 
 pub fn spawn_translate(
     commands: &mut ChildBuilder,
-    asset_server: &Res<AssetServer>,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     let cone = meshes.add(cone());
