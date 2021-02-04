@@ -15,10 +15,10 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
-pub static mut LIBRARY: Option<Vec<PanelInfo>> = None;
+pub struct Library(pub Vec<PanelInfo>);
 
 #[derive(Debug)]
-pub struct SpawnPanelEvent(pub usize, pub bool);
+pub struct SpawnPanelEvent(pub PanelInfo, pub bool);
 
 #[derive(Debug)]
 struct GUIState {
@@ -56,12 +56,17 @@ fn ui(
     asset_server: Res<AssetServer>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
+    library: Res<Library>,
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<GUIState>,
     sel: Res<crate::selection::Selection>,
     mut sel_query: Query<
-        (&mut Transform, Option<&crate::parts::Screw>),
+        (
+            &mut Transform,
+            Option<&crate::parts::Screw>,
+            Option<&crate::parts::PanelInfo>,
+        ),
         With<crate::selection::Selectable>,
     >,
 
@@ -105,14 +110,13 @@ fn ui(
                     ui.horizontal(|ui| {
                         ui.label("Object:");
                         ui.label(match selected {
-                            Some((_, screw)) => {
-                                if let Some(screw) = screw {
-                                    format!("{:?}", screw)
-                                } else {
-                                    "pcb".to_string()
-                                }
+                            Some((_, Some(screw), _)) => {
+                                format!("{:?}", screw)
                             }
-                            None => "<none>".to_string(),
+                            Some((_, _, Some(pcb))) => {
+                                format!("{}", pcb.name())
+                            }
+                            _ => "<none>".to_string(),
                         });
                     });
 
@@ -231,31 +235,28 @@ fn ui(
                             );
                         };
                     } else {
-                        let tmp = unsafe { LIBRARY.as_ref() };
-                        if let Some(panels) = tmp {
-                            for (i, panel) in panels.iter().enumerate() {
-                                ui.columns(2, |columns| {
-                                    columns[0].label(format!("{}", panel.name()));
-                                    columns[1].with_layout(
-                                        egui::Layout::top_down(egui::Align::Max),
-                                        |ui| {
-                                            if panel.well_formed() {
-                                                if ui.small_button("+").clicked {
-                                                    spawner.send(SpawnPanelEvent(
-                                                        i,
-                                                        state.spawn_panel_hull,
-                                                    ));
-                                                }
-                                            } else {
-                                                ui.colored_label(egui::Color32::RED, ":/");
+                        for panel in library.0.iter() {
+                            ui.columns(2, |columns| {
+                                columns[0].label(format!("{}", panel.name()));
+                                columns[1].with_layout(
+                                    egui::Layout::top_down(egui::Align::Max),
+                                    |ui| {
+                                        if panel.well_formed() {
+                                            if ui.small_button("+").clicked {
+                                                spawner.send(SpawnPanelEvent(
+                                                    panel.clone(),
+                                                    state.spawn_panel_hull,
+                                                ));
                                             }
-                                        },
-                                    );
-                                });
-                            }
-                            ui.separator();
-                            ui.checkbox(&mut state.spawn_panel_hull, "Convex hull");
+                                        } else {
+                                            ui.colored_label(egui::Color32::RED, ":/");
+                                        }
+                                    },
+                                );
+                            });
                         }
+                        ui.separator();
+                        ui.checkbox(&mut state.spawn_panel_hull, "Convex hull");
                     }
                 });
         });

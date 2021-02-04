@@ -110,13 +110,10 @@ fn load_specs(spec_dirs: &Vec<String>) -> Result<Vec<parts::PanelInfo>, std::io:
 
 fn main() {
     let args = Opt::from_args();
-
     let specs = load_specs(&args.spec_dirs).unwrap();
-    unsafe {
-        gui::LIBRARY = Some(specs);
-    }
 
     App::build()
+        .add_resource(gui::Library(specs))
         .add_resource(Msaa { samples: 8 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PickingPlugin)

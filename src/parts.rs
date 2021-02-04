@@ -34,26 +34,23 @@ pub struct ScrewBundle {
     pub global_transform: GlobalTransform,
 }
 
+#[derive(Debug, Clone)]
 pub struct PanelInfo {
-    parsed: Option<Panel<'static>>,
-    err: Option<SpecErr>,
+    spec: String,
     path: String,
+    convex_hull: bool,
+    err: Option<SpecErr>,
 }
 
 impl PanelInfo {
     pub fn new(path: String, data: String) -> Self {
-        let mut panel = Panel::new();
-        match panel.push_spec(&data) {
-            Ok(_) => Self {
-                parsed: Some(panel),
-                err: None,
-                path,
-            },
-            Err(e) => Self {
-                parsed: None,
-                err: Some(e),
-                path,
-            },
+        let err = Panel::new().push_spec(&data).err();
+
+        Self {
+            path,
+            err,
+            spec: data,
+            convex_hull: false,
         }
     }
 
@@ -62,7 +59,13 @@ impl PanelInfo {
     }
 
     pub fn well_formed(&self) -> bool {
-        self.parsed.is_some()
+        self.err.is_none()
+    }
+
+    pub fn panel(&self) -> Panel {
+        let mut panel = Panel::new();
+        panel.push_spec(&self.spec);
+        panel
     }
 }
 
@@ -74,9 +77,9 @@ pub struct Pcb;
 /// all the usual components present.
 #[derive(Bundle, Debug)]
 pub struct PcbBundle {
+    panel: PanelInfo,
     pcb: Pcb,
     selectable: Selectable,
-    pub convex_hull: bool,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 
@@ -84,9 +87,10 @@ pub struct PcbBundle {
 }
 
 impl PcbBundle {
-    pub fn new_with_spec(path: String, convex_hull: bool) -> Self {
+    pub fn new_with_panel(panel: PanelInfo) -> Self {
+        let path = panel.path.clone();
         Self {
-            convex_hull,
+            panel,
             pcb: Pcb::default(),
             selectable: Selectable::default(),
             transform: Transform::default(),
@@ -246,18 +250,17 @@ fn spawner(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ev in spawn_reader.iter(&ev_spawn) {
-        let panel_info = unsafe { &mut super::gui::LIBRARY.as_mut().unwrap()[ev.0] };
-        panel_info.parsed.as_mut().unwrap().convex_hull(ev.1);
-        let mesh = meshes.add(build_panel_mesh(
-            panel_info.parsed.as_ref().unwrap().tessellate_3d().unwrap(),
-        ));
+        let mut panel = ev.0.panel();
+        panel.convex_hull(ev.1);
+
+        let mesh = meshes.add(build_panel_mesh(panel.tessellate_3d().unwrap()));
         let material = materials.add(Color::rgb(0.2, 0.5, 0.2).into());
 
         spawn_pcb(
             &mut commands,
             &mut materials,
             &mut meshes,
-            PcbBundle::new_with_spec(panel_info.path.clone(), ev.1),
+            PcbBundle::new_with_panel(ev.0.clone()),
             PbrBundle {
                 mesh,
                 material,
