@@ -9,11 +9,11 @@ mod gizmo;
 mod grid;
 mod gui;
 mod parts;
-mod selection;
+mod interaction;
 
 fn interaction_state(
     egui: Res<EguiContext>,
-    sel: Res<selection::Selection>,
+    sel: Res<interaction::Selection>,
     mut cameras: Query<&mut CameraRig>,
     mut pick_state: ResMut<PickState>,
 ) {
@@ -123,7 +123,7 @@ fn main() {
         .add_system(interaction_state.system())
         .add_plugin(grid::Plugin)
         .add_plugin(gizmo::Plugin)
-        .add_plugin(selection::Plugin)
+        .add_plugin(interaction::Plugin)
         .add_plugin(gui::Plugin)
         .add_plugin(parts::Plugin)
         .run();

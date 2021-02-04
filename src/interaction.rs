@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::camera::Camera};
+use bevy::{prelude::*, input::keyboard::KeyboardInput, render::camera::Camera};
 use bevy_mod_picking::*;
 
 use crate::gizmo::TranslateHandle;
@@ -22,8 +22,10 @@ impl bevy::prelude::Plugin for Plugin {
             .add_event::<ParentClickedEvent>()
             .add_event::<ReleaseEvent>()
             .add_system(get_picks.system())
+            .add_event::<HotkeyEvent>()
+            .add_system(get_keyboard.system())
             .add_event::<GizmoDragEvent>()
-            .add_system(update_selection.system())
+            .add_system(gcd.system())
             .add_event::<EntityDragEvent>()
             .add_system(compute_drag.system())
             .add_system(update_from_drag.system());
@@ -57,17 +59,59 @@ fn get_picks(
     }
 }
 
+
+#[derive(Debug)]
+enum HotkeyEvent {
+    Escape,
+    Delete,
+}
+
+fn get_keyboard(
+    ev_keys: Res<Events<KeyboardInput>>,
+    mut keys_reader: Local<EventReader<KeyboardInput>>,
+
+    mut ev_hotkey: ResMut<Events<HotkeyEvent>>,
+) {
+    let mut escape_pressed = false;
+    let mut delete_pressed = false;
+    for event in keys_reader.iter(&ev_keys) {
+        match event.key_code {
+            Some(KeyCode::Escape) => {
+                escape_pressed = true;
+            }
+            Some(KeyCode::Delete) => {
+                delete_pressed = true;
+            }
+            _ => {}
+        }
+    }
+
+    if escape_pressed {
+        ev_hotkey.send(HotkeyEvent::Escape);
+    }
+    if delete_pressed {
+        ev_hotkey.send(HotkeyEvent::Delete);
+    }
+}
+
 #[derive(Debug)]
 struct GizmoDragEvent(pub Entity, pub Transform, pub TranslateHandle);
 
-fn update_selection(
+/// gcd:
+///  - emits dragging events
+///  - updates the current selected entity.
+///  - handles hotkeys
+fn gcd(
     ev_clicked: Res<Events<ParentClickedEvent>>,
     mut clicked_reader: Local<EventReader<ParentClickedEvent>>,
     ev_released: Res<Events<ReleaseEvent>>,
     mut released_reader: Local<EventReader<ReleaseEvent>>,
+    ev_hotkey: Res<Events<HotkeyEvent>>,
+    mut hotkey_reader: Local<EventReader<HotkeyEvent>>,
 
     mut selection: ResMut<Selection>,
     selection_query: Query<&Transform, With<Selectable>>,
+    mut commands: &mut Commands,
 
     mut ev_dragging: ResMut<Events<GizmoDragEvent>>,
 ) {
@@ -85,6 +129,19 @@ fn update_selection(
     for _ev in released_reader.iter(&ev_released) {
         selection.dragging_gizmo = false;
         selection.handle = None;
+    }
+    for ev in hotkey_reader.iter(&ev_hotkey) {
+        match ev {
+            HotkeyEvent::Escape => {
+                *selection = Selection::default();
+            }
+            HotkeyEvent::Delete => {
+                if let Some(sel) = selection.entity {
+                    commands.despawn_recursive(sel);
+                }
+                *selection = Selection::default();
+            }
+        }
     }
 
     if selection.dragging_gizmo {

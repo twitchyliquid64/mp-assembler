@@ -60,14 +60,14 @@ fn ui(
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<GUIState>,
-    sel: Res<crate::selection::Selection>,
+    sel: Res<crate::interaction::Selection>,
     mut sel_query: Query<
         (
             &mut Transform,
             Option<&crate::parts::Screw>,
             Option<&crate::parts::PanelInfo>,
         ),
-        With<crate::selection::Selectable>,
+        With<crate::interaction::Selectable>,
     >,
 
     mut spawner: ResMut<Events<SpawnPanelEvent>>,

@@ -1,4 +1,4 @@
-pub use crate::selection::Selectable;
+pub use crate::interaction::Selectable;
 use bevy::prelude::*;
 use maker_panel::{Panel, SpecErr};
 

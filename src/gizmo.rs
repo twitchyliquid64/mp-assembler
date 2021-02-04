@@ -1,4 +1,4 @@
-use crate::selection::{Selectable, Selection};
+use crate::interaction::{Selectable, Selection};
 use bevy::prelude::*;
 use bevy_mod_raycast::{Intersection, Primitive3d};
 
