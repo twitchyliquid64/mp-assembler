@@ -115,8 +115,9 @@ fn gizmo_update_visibility(
     selection: Res<Selection>,
     mut gizmos: Query<(&mut Visible, &Parent), With<Gizmo>>,
 ) {
+    let entity = selection.entity();
     for (mut vis, parent) in gizmos.iter_mut() {
-        vis.is_visible = Some(parent.0) == selection.entity;
+        vis.is_visible = Some(parent.0) == entity;
     }
 }
 

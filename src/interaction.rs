@@ -6,12 +6,46 @@ use crate::gizmo::TranslateHandle;
 #[derive(Default, Debug)]
 pub struct Selectable;
 
-#[derive(Default, Debug)]
-pub struct Selection {
-    pub entity: Option<Entity>,
-    pub handle: Option<TranslateHandle>,
-    pub current_transform: Transform,
-    pub dragging_gizmo: bool,
+#[derive(Debug)]
+pub enum Selection {
+    None,
+    Focused(Entity, Transform),
+    AxisFocused {
+        entity: Entity,
+        handle: TranslateHandle,
+        current_transform: Transform,
+        dragging_gizmo: bool,
+    },
+}
+
+impl Default for Selection {
+    fn default() -> Self {
+        Selection::None
+    }
+}
+
+impl Selection {
+    pub fn entity(&self) -> Option<Entity> {
+        match self {
+            Selection::None => None,
+            Selection::Focused(e, _) => Some(e.clone()),
+            Selection::AxisFocused { entity, .. } => Some(entity.clone()),
+        }
+    }
+
+    pub fn gizmo_handle(&self) -> Option<TranslateHandle> {
+        match self {
+            Selection::AxisFocused { handle, .. } => Some(handle.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn is_dragging_gizmo(&self) -> bool {
+        match self {
+            Selection::AxisFocused { dragging_gizmo, .. } => *dragging_gizmo,
+            _ => false,
+        }
+    }
 }
 
 pub struct Plugin;
@@ -117,38 +151,58 @@ fn gcd(
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
         if let Ok(transform) = selection_query.get(ev.0) {
-            selection.entity = Some(ev.0);
-            selection.handle = ev.1;
-            selection.dragging_gizmo = ev.1.is_some();
-            selection.current_transform = transform.clone();
+            if let Some(handle) = ev.1 {
+                // Handle clicked
+                *selection = Selection::AxisFocused {
+                    handle,
+                    entity: ev.0,
+                    dragging_gizmo: true,
+                    current_transform: transform.clone(),
+                };
+            } else {
+                // Entity focused
+                *selection = Selection::Focused(ev.0, transform.clone());
+            }
         } else {
-            *selection = Selection::default();
+            *selection = Selection::None;
         }
     }
+
     for _ev in released_reader.iter(&ev_released) {
-        selection.dragging_gizmo = false;
-        selection.handle = None;
+        // If the mouse was released while dragging a translate axis.
+        if let Selection::AxisFocused {
+            ref mut dragging_gizmo,
+            ..
+        } = *selection
+        {
+            *dragging_gizmo = false;
+        }
     }
+
     for ev in hotkey_reader.iter(&ev_hotkey) {
         match ev {
             HotkeyEvent::Escape => {
-                *selection = Selection::default();
+                *selection = Selection::None;
             }
             HotkeyEvent::Delete => {
-                if let Some(sel) = selection.entity {
+                if let Some(sel) = selection.entity() {
                     commands.despawn_recursive(sel);
                 }
-                *selection = Selection::default();
+                *selection = Selection::None;
             }
         }
     }
 
-    if selection.dragging_gizmo {
-        ev_dragging.send(GizmoDragEvent(
-            selection.entity.unwrap(),
-            selection.current_transform,
-            selection.handle.unwrap(),
-        ));
+    if let Selection::AxisFocused {
+        dragging_gizmo,
+        entity,
+        handle,
+        current_transform,
+    } = *selection
+    {
+        if dragging_gizmo {
+            ev_dragging.send(GizmoDragEvent(entity, current_transform, handle));
+        }
     }
 }
 

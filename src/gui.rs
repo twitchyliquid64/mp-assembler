@@ -70,15 +70,17 @@ fn ui(
     mut sel_query: Query<
         (
             &mut Transform,
-            Option<&crate::parts::Screw>,
             Option<&crate::parts::PanelInfo>,
+            Option<&crate::parts::Screw>,
+            Option<&crate::parts::Washer>,
+            Option<&crate::parts::Nut>,
         ),
         With<crate::interaction::Selectable>,
     >,
 
     mut spawner: ResMut<Events<SpawnPartEvent>>,
 ) {
-    let selected = match sel.entity {
+    let selected = match sel.entity() {
         Some(e) => {
             if let Ok(e) = sel_query.get_mut(e) {
                 state.translation = e.0.translation.clone();
@@ -90,8 +92,10 @@ fn ui(
         }
         None => None,
     };
-    if let Some(h) = sel.handle {
-        state.cur_axis = Some(h);
+    if sel.is_dragging_gizmo() {
+        if let Some(h) = sel.gizmo_handle() {
+            state.cur_axis = Some(h);
+        }
     }
 
     let mut reset_rotation = false;
@@ -116,10 +120,16 @@ fn ui(
                     ui.horizontal(|ui| {
                         ui.label("Object:");
                         ui.label(match selected {
-                            Some((_, Some(screw), _)) => {
-                                format!("{:?}", screw)
+                            Some((_, _, Some(screw), _, _)) => {
+                                format!("{:?} screw", screw)
                             }
-                            Some((_, _, Some(pcb))) => {
+                            Some((_, _, _, Some(washer), _)) => {
+                                format!("{:?} washer", washer)
+                            }
+                            Some((_, _, _, _, Some(nut))) => {
+                                format!("{:?} nut", nut)
+                            }
+                            Some((_, Some(pcb), _, _, _)) => {
                                 format!("{}", pcb.name())
                             }
                             _ => "<none>".to_string(),
@@ -194,7 +204,7 @@ fn ui(
                     ui.allocate_space(egui::Vec2::new(0., 1.));
 
                     if ui.button("Delete").clicked {
-                        if let Some(sel) = sel.entity {
+                        if let Some(sel) = sel.entity() {
                             state.cur_axis = None;
                             commands.despawn_recursive(sel);
                         }
