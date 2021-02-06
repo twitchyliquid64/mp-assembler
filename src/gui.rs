@@ -18,13 +18,16 @@ impl bevy::prelude::Plugin for Plugin {
 pub struct Library(pub Vec<PanelInfo>);
 
 #[derive(Debug)]
-pub struct SpawnPanelEvent(pub PanelInfo, pub bool);
+pub struct SpawnPanelEvent(pub PanelInfo, pub bool, pub [f32; 3]);
 
 #[derive(Debug)]
 struct GUIState {
     pub spawn_selected: usize,
     pub spawn_mm: u32,
+
     pub spawn_panel_hull: bool,
+    pub spawn_panel_color: [f32; 3],
+
     pub translation: Vec3,
     pub rotation: Vec4,
     pub cur_axis: Option<TranslateHandle>,
@@ -36,6 +39,7 @@ impl Default for GUIState {
             spawn_selected: 0,
             spawn_mm: 12,
             spawn_panel_hull: false,
+            spawn_panel_color: [0.2, 0.5, 0.2],
             translation: Vec3::default(),
             rotation: Vec4::default(),
             cur_axis: None,
@@ -169,7 +173,7 @@ fn ui(
                         });
                     });
 
-                    ui.allocate_space(egui::Vec2::new(0., 4.));
+                    ui.allocate_space(egui::Vec2::new(0., 5.));
                     ui.columns(4, |columns| {
                         // columns[0].allocate_space(egui::Vec2::new(0., 1.));
                         columns[0].label("Rotation");
@@ -193,6 +197,7 @@ fn ui(
                             commands.despawn_recursive(sel);
                         }
                     }
+                    ui.allocate_space(egui::Vec2::new(0., 4.));
                 });
 
             egui::CollapsingHeader::new("Spawn")
@@ -246,6 +251,7 @@ fn ui(
                                                 spawner.send(SpawnPanelEvent(
                                                     panel.clone(),
                                                     state.spawn_panel_hull,
+                                                    state.spawn_panel_color,
                                                 ));
                                             }
                                         } else {
@@ -256,7 +262,10 @@ fn ui(
                             });
                         }
                         ui.separator();
-                        ui.checkbox(&mut state.spawn_panel_hull, "Convex hull");
+                        ui.horizontal(|ui| {
+                            ui.checkbox(&mut state.spawn_panel_hull, "Convex hull");
+                            ui.color_edit_button_rgb(&mut state.spawn_panel_color);
+                        });
                     }
                 });
         });

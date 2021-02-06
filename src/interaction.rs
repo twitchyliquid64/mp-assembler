@@ -1,4 +1,4 @@
-use bevy::{prelude::*, input::keyboard::KeyboardInput, render::camera::Camera};
+use bevy::{input::keyboard::KeyboardInput, prelude::*, render::camera::Camera};
 use bevy_mod_picking::*;
 
 use crate::gizmo::TranslateHandle;
@@ -58,7 +58,6 @@ fn get_picks(
         ev_released.send(ReleaseEvent);
     }
 }
-
 
 #[derive(Debug)]
 enum HotkeyEvent {

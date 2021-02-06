@@ -8,8 +8,8 @@ use structopt::StructOpt;
 mod gizmo;
 mod grid;
 mod gui;
-mod parts;
 mod interaction;
+mod parts;
 
 fn interaction_state(
     egui: Res<EguiContext>,

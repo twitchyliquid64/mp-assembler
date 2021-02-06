@@ -254,7 +254,7 @@ fn spawner(
         panel.convex_hull(ev.1);
 
         let mesh = meshes.add(build_panel_mesh(panel.tessellate_3d().unwrap()));
-        let material = materials.add(Color::rgb(0.2, 0.5, 0.2).into());
+        let material = materials.add(Color::rgb(ev.2[0], ev.2[1], ev.2[2]).into());
 
         spawn_pcb(
             &mut commands,

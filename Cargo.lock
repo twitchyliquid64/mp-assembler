@@ -3088,9 +3088,9 @@ dependencies = [
 
 [[package]]
 name = "maker-panel"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d808a641032ac62c5ae5246581d7df71c43f36000ad3b6009897dd4fe22242b"
+checksum = "ff3538fcc1decbd009b065d651c0c59459e68ee2cddb1734ce1ab2d426196e8b"
 dependencies = [
  "conv",
  "dyn-clone",
