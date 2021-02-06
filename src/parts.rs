@@ -2,7 +2,7 @@ pub use crate::interaction::Selectable;
 use bevy::prelude::*;
 use maker_panel::{Panel, SpecErr};
 
-use crate::gui::SpawnPanelEvent;
+use crate::gui::SpawnPartEvent;
 
 pub struct Plugin;
 
@@ -13,7 +13,7 @@ impl bevy::prelude::Plugin for Plugin {
 }
 
 /// Component that is present on all screw entities
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Screw {
     M3,
     M5,
@@ -29,6 +29,50 @@ impl Default for Screw {
 #[derive(Bundle, Debug, Default)]
 pub struct ScrewBundle {
     screw: Screw,
+    selectable: Selectable,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+/// Component that is present on all washer entities
+#[derive(Debug, Clone)]
+pub enum Washer {
+    M3,
+    M5,
+}
+
+impl Default for Washer {
+    fn default() -> Self {
+        Washer::M3
+    }
+}
+
+/// Bundle to make it easy to construct washer entities.
+#[derive(Bundle, Debug, Default)]
+pub struct WasherBundle {
+    washer: Washer,
+    selectable: Selectable,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+/// Component that is present on all nut entities
+#[derive(Debug, Clone)]
+pub enum Nut {
+    M3,
+    M5,
+}
+
+impl Default for Nut {
+    fn default() -> Self {
+        Nut::M3
+    }
+}
+
+/// Bundle to make it easy to construct nut entities.
+#[derive(Bundle, Debug, Default)]
+pub struct NutBundle {
+    nut: Nut,
     selectable: Selectable,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -106,7 +150,7 @@ pub enum Geometry {
     Spec(String),
 }
 
-pub fn spawn_pcb(
+fn spawn_pcb(
     commands: &mut Commands,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     mut meshes: &mut ResMut<Assets<Mesh>>,
@@ -124,12 +168,12 @@ pub fn spawn_pcb(
     });
 }
 
-pub fn spawn_screw(
+fn spawn_screw(
     screw: Screw,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
     mut transform: Transform,
     length: usize,
 ) {
@@ -178,6 +222,80 @@ pub fn spawn_screw(
                             .with_bounding_sphere(thread_2mm.clone()),
                     );
             }
+        });
+}
+
+fn spawn_washer(
+    washer: Washer,
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut transform: Transform,
+) {
+    let stainless = materials.add(StandardMaterial {
+        albedo: Color::rgb(0.79, 0.8, 0.81).into(),
+        ..Default::default()
+    });
+
+    if let Washer::M5 = washer {
+        transform.scale = Vec3::new(1. / 3. * 5., 1. / 3. * 5., 1.);
+    }
+
+    commands
+        .spawn(WasherBundle {
+            transform,
+            washer,
+            ..WasherBundle::default()
+        })
+        .with_children(|parent| {
+            crate::gizmo::spawn_translate(parent, &mut meshes, &mut materials);
+
+            let w_mesh = asset_server.load("m3-washer.stl");
+            parent
+                .spawn(PbrBundle {
+                    mesh: w_mesh.clone(),
+                    material: stainless.clone(),
+                    ..Default::default()
+                })
+                .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(w_mesh));
+        });
+}
+
+fn spawn_nut(
+    nut: Nut,
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut transform: Transform,
+) {
+    let stainless = materials.add(StandardMaterial {
+        albedo: Color::rgb(0.79, 0.8, 0.81).into(),
+        ..Default::default()
+    });
+
+    if let Nut::M5 = nut {
+        transform.scale = Vec3::new(1. / 3. * 5., 1. / 3. * 5., 1.);
+    }
+
+    commands
+        .spawn(NutBundle {
+            transform,
+            nut,
+            ..NutBundle::default()
+        })
+        .with_children(|parent| {
+            crate::gizmo::spawn_translate(parent, &mut meshes, &mut materials);
+
+            let w_mesh = asset_server.load("m3-nut.stl");
+            parent
+                .spawn(PbrBundle {
+                    mesh: w_mesh.clone(),
+                    material: stainless.clone(),
+                    ..Default::default()
+                })
+                .with(bevy_mod_picking::PickableMesh::default().with_bounding_sphere(w_mesh));
         });
 }
 
@@ -242,31 +360,67 @@ fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
 }
 
 fn spawner(
-    ev_spawn: Res<Events<SpawnPanelEvent>>,
-    mut spawn_reader: Local<EventReader<SpawnPanelEvent>>,
+    ev_spawn: Res<Events<SpawnPartEvent>>,
+    mut spawn_reader: Local<EventReader<SpawnPartEvent>>,
 
     mut commands: &mut Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ev in spawn_reader.iter(&ev_spawn) {
-        let mut panel = ev.0.panel();
-        panel.convex_hull(ev.1);
+        match ev {
+            SpawnPartEvent::Panel(panel, convex_hull, color) => {
+                let mut p = panel.panel();
+                p.convex_hull(*convex_hull);
 
-        let mesh = meshes.add(build_panel_mesh(panel.tessellate_3d().unwrap()));
-        let material = materials.add(Color::rgb(ev.2[0], ev.2[1], ev.2[2]).into());
+                let mesh = meshes.add(build_panel_mesh(p.tessellate_3d().unwrap()));
+                let material = materials.add(Color::rgb(color[0], color[1], color[2]).into());
 
-        spawn_pcb(
-            &mut commands,
-            &mut materials,
-            &mut meshes,
-            PcbBundle::new_with_panel(ev.0.clone()),
-            PbrBundle {
-                mesh,
-                material,
-                transform: Transform::identity(),
-                ..Default::default()
-            },
-        )
+                spawn_pcb(
+                    &mut commands,
+                    &mut materials,
+                    &mut meshes,
+                    PcbBundle::new_with_panel(panel.clone()),
+                    PbrBundle {
+                        mesh,
+                        material,
+                        transform: Transform::identity(),
+                        ..Default::default()
+                    },
+                )
+            }
+            SpawnPartEvent::Screw(screw, length) => {
+                spawn_screw(
+                    screw.clone(),
+                    &mut commands,
+                    &asset_server,
+                    &mut materials,
+                    &mut meshes,
+                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                    *length,
+                );
+            }
+            SpawnPartEvent::Washer(washer) => {
+                spawn_washer(
+                    washer.clone(),
+                    &mut commands,
+                    &asset_server,
+                    &mut materials,
+                    &mut meshes,
+                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                );
+            }
+            SpawnPartEvent::Nut(nut) => {
+                spawn_nut(
+                    nut.clone(),
+                    &mut commands,
+                    &asset_server,
+                    &mut materials,
+                    &mut meshes,
+                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                );
+            }
+        }
     }
 }

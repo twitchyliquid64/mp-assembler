@@ -9,7 +9,7 @@ pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(EguiPlugin)
-            .add_event::<SpawnPanelEvent>()
+            .add_event::<SpawnPartEvent>()
             .add_resource(GUIState::default())
             .add_system(ui.system());
     }
@@ -18,7 +18,12 @@ impl bevy::prelude::Plugin for Plugin {
 pub struct Library(pub Vec<PanelInfo>);
 
 #[derive(Debug)]
-pub struct SpawnPanelEvent(pub PanelInfo, pub bool, pub [f32; 3]);
+pub enum SpawnPartEvent {
+    Panel(PanelInfo, bool, [f32; 3]),
+    Screw(parts::Screw, usize),
+    Washer(parts::Washer),
+    Nut(parts::Nut),
+}
 
 #[derive(Debug)]
 struct GUIState {
@@ -57,9 +62,6 @@ enum RotationAction {
 
 fn ui(
     commands: &mut Commands,
-    asset_server: Res<AssetServer>,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
     library: Res<Library>,
 
     mut egui_context: ResMut<EguiContext>,
@@ -74,7 +76,7 @@ fn ui(
         With<crate::interaction::Selectable>,
     >,
 
-    mut spawner: ResMut<Events<SpawnPanelEvent>>,
+    mut spawner: ResMut<Events<SpawnPartEvent>>,
 ) {
     let selected = match sel.entity {
         Some(e) => {
@@ -224,21 +226,32 @@ fn ui(
                                 .smallest_positive(2.0)
                                 .text("mm"),
                         );
-                        if ui.add(egui::Button::new("spawn")).clicked {
-                            parts::spawn_screw(
-                                match state.spawn_selected {
-                                    1 => parts::Screw::M3,
-                                    2 => parts::Screw::M5,
+                        ui.columns(3, |columns| {
+                            if columns[0].add(egui::Button::new("screw")).clicked {
+                                spawner.send(SpawnPartEvent::Screw(
+                                    match state.spawn_selected {
+                                        1 => parts::Screw::M3,
+                                        2 => parts::Screw::M5,
+                                        _ => unreachable!(),
+                                    },
+                                    state.spawn_mm as usize,
+                                ));
+                            };
+                            if columns[1].add(egui::Button::new("washer")).clicked {
+                                spawner.send(SpawnPartEvent::Washer(match state.spawn_selected {
+                                    1 => parts::Washer::M3,
+                                    2 => parts::Washer::M5,
                                     _ => unreachable!(),
-                                },
-                                commands,
-                                &asset_server,
-                                materials,
-                                meshes,
-                                Transform::from_translation(Vec3::new(0., 10., 0.)),
-                                state.spawn_mm as usize,
-                            );
-                        };
+                                }));
+                            };
+                            if columns[2].add(egui::Button::new("nut")).clicked {
+                                spawner.send(SpawnPartEvent::Nut(match state.spawn_selected {
+                                    1 => parts::Nut::M3,
+                                    2 => parts::Nut::M5,
+                                    _ => unreachable!(),
+                                }));
+                            };
+                        });
                     } else {
                         for panel in library.0.iter() {
                             ui.columns(2, |columns| {
@@ -248,7 +261,7 @@ fn ui(
                                     |ui| {
                                         if panel.well_formed() {
                                             if ui.small_button("+").clicked {
-                                                spawner.send(SpawnPanelEvent(
+                                                spawner.send(SpawnPartEvent::Panel(
                                                     panel.clone(),
                                                     state.spawn_panel_hull,
                                                     state.spawn_panel_color,
