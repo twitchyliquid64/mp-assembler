@@ -19,7 +19,7 @@ fn interaction_state(
 ) {
     let using_gui = egui.ctx.wants_mouse_input();
     for mut c in cameras.iter_mut() {
-        c.disable = using_gui || sel.is_dragging_gizmo();
+        c.disable = using_gui || sel.is_dragging();
     }
     pick_state.enabled = !using_gui;
 }

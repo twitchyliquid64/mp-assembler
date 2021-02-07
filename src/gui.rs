@@ -92,7 +92,7 @@ fn ui(
         }
         None => None,
     };
-    if sel.is_dragging_gizmo() {
+    if sel.is_dragging() {
         if let Some(h) = sel.gizmo_handle() {
             state.cur_axis = Some(h);
         }
