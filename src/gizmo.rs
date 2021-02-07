@@ -81,7 +81,12 @@ impl TranslateHandle {
         )
     }
 
-    pub fn calc_position(&self, mut transform: Transform, intersection: Intersection) -> Transform {
+    pub fn calc_position(
+        &self,
+        mut transform: Transform,
+        intersection: Intersection,
+        handle_offset: bool,
+    ) -> Transform {
         let (axis, p): (Vec3, Vec3) = match self {
             TranslateHandle::X => (
                 Vec3::unit_x(),
@@ -97,7 +102,13 @@ impl TranslateHandle {
             ),
         };
 
-        transform.translation = p + (intersection.position() - Vec3::splat(10.)) * axis;
+        let offset = if handle_offset {
+            Vec3::splat(10.)
+        } else {
+            Vec3::default()
+        };
+
+        transform.translation = p + (intersection.position() - offset) * axis;
         transform
     }
 }

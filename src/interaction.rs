@@ -26,7 +26,7 @@ pub enum Selection {
     AxisFocused {
         entity: Entity,
         handle: TranslateHandle,
-        current_transform: Transform,
+        start_transform: Transform,
         dragging: DraggingKind,
     },
 }
@@ -222,7 +222,7 @@ fn gcd(
                     handle,
                     entity: ev.0,
                     dragging: DraggingKind::Gizmo,
-                    current_transform: transform.clone(),
+                    start_transform: transform.clone(),
                 };
             } else {
                 // Entity focused
@@ -256,34 +256,30 @@ fn gcd(
             }
 
             HotkeyEvent::AxisX | HotkeyEvent::AxisY | HotkeyEvent::AxisZ => {
-                let info = match *selection {
-                    Selection::Focused(entity, current_transform) => {
-                        Some((entity, current_transform))
-                    }
-                    Selection::AxisFocused {
-                        entity,
-                        current_transform,
-                        ..
-                    } => Some((entity, current_transform)),
+                let entity = match *selection {
+                    Selection::Focused(entity, _) => Some(entity),
+                    Selection::AxisFocused { entity, .. } => Some(entity),
                     _ => None,
                 };
-                if let Some((entity, current_transform)) = info {
-                    *selection = Selection::AxisFocused {
-                        entity,
-                        current_transform,
-                        handle: match ev {
-                            HotkeyEvent::AxisX => TranslateHandle::X,
-                            HotkeyEvent::AxisY => TranslateHandle::Y,
-                            HotkeyEvent::AxisZ => TranslateHandle::Z,
-                            _ => unreachable!(),
-                        },
-                        dragging: DraggingKind::Hotkey,
-                    };
-                    if let Some(entity) = axis_entity.0 {
-                        // Theres already an axis visualization, yeet it on
-                        // outta here.
-                        commands.despawn(entity);
-                        *axis_entity = AxisEntity(None);
+                if let Some(entity) = entity {
+                    if let Ok(transform) = selection_query.get(entity) {
+                        *selection = Selection::AxisFocused {
+                            entity,
+                            start_transform: transform.clone(),
+                            handle: match ev {
+                                HotkeyEvent::AxisX => TranslateHandle::X,
+                                HotkeyEvent::AxisY => TranslateHandle::Y,
+                                HotkeyEvent::AxisZ => TranslateHandle::Z,
+                                _ => unreachable!(),
+                            },
+                            dragging: DraggingKind::Hotkey,
+                        };
+                        if let Some(entity) = axis_entity.0 {
+                            // Theres already an axis visualization, yeet it on
+                            // outta here.
+                            commands.despawn(entity);
+                            *axis_entity = AxisEntity(None);
+                        }
                     }
                 }
             }
@@ -294,17 +290,17 @@ fn gcd(
         dragging,
         entity,
         handle,
-        current_transform,
+        start_transform,
     } = *selection
     {
         if dragging != DraggingKind::None {
-            ev_dragging.send(DragEvent(entity, current_transform, dragging, handle));
+            ev_dragging.send(DragEvent(entity, start_transform, dragging, handle));
         }
         match (dragging == DraggingKind::Hotkey, axis_entity.0) {
             (true, None) => {
                 // We are in an axis hotkey mode but no entity for the visuals exists.
                 let (mesh, material) =
-                    AxisEntity::build(current_transform, handle, &mut meshes, &mut materials);
+                    AxisEntity::build(start_transform, handle, &mut meshes, &mut materials);
                 *axis_entity = AxisEntity(Some(
                     commands
                         .spawn(PbrBundle {
@@ -350,7 +346,7 @@ fn compute_drag(
     use bevy_mod_raycast::RayCastSource;
 
     for ev in drag_reader.iter(&ev_dragging) {
-        let current_transform = ev.1;
+        let start_transform = ev.1;
         for event in cursor_reader.iter(&ev_cursor) {
             for (global_transform, camera) in &mut camera_query.iter_mut() {
                 let p: [f32; 2] = event.position.into();
@@ -361,7 +357,7 @@ fn compute_drag(
                     global_transform,
                 );
 
-                let (hit_plane_t, hit_plane_b) = ev.3.intersection_plane(current_transform);
+                let (hit_plane_t, hit_plane_b) = ev.3.intersection_plane(start_transform);
                 let cast_result = if let Some(i) = source.intersect_primitive(hit_plane_t) {
                     Some(i)
                 } else {
@@ -370,7 +366,7 @@ fn compute_drag(
                 if let Some(i) = cast_result {
                     ev_entity_dragging.send(EntityDragEvent(
                         ev.0,
-                        ev.3.calc_position(current_transform, i),
+                        ev.3.calc_position(start_transform, i, ev.2 == DraggingKind::Gizmo),
                     ));
                 }
             }
