@@ -108,7 +108,8 @@ impl TranslateHandle {
             Vec3::default()
         };
 
-        transform.translation = p + (intersection.position() - offset) * axis;
+        let pos = (intersection.position() * 20.).round() / 20.; // round to 0.05
+        transform.translation = p + (pos - offset) * axis;
         transform
     }
 }

@@ -10,7 +10,9 @@ impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(EguiPlugin)
             .add_event::<SpawnPartEvent>()
+            .add_event::<FocusUIEvent>()
             .add_resource(GUIState::default())
+            .add_resource(WidgetIDs::default())
             .add_system(ui.system());
     }
 }
@@ -23,6 +25,11 @@ pub enum SpawnPartEvent {
     Screw(parts::Screw, usize),
     Washer(parts::Washer),
     Nut(parts::Nut),
+}
+
+#[derive(Debug)]
+pub enum FocusUIEvent {
+    TranslateInput,
 }
 
 #[derive(Debug)]
@@ -52,6 +59,19 @@ impl Default for GUIState {
     }
 }
 
+#[derive(Debug)]
+struct WidgetIDs {
+    translate: egui::Id,
+}
+
+impl Default for WidgetIDs {
+    fn default() -> Self {
+        Self {
+            translate: egui::Id::new(1u8),
+        }
+    }
+}
+
 enum RotationAction {
     None,
     Reset,
@@ -66,6 +86,10 @@ fn ui(
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<GUIState>,
+    mut widgets: ResMut<WidgetIDs>,
+    ev_focus: Res<Events<FocusUIEvent>>,
+    mut focus_reader: Local<EventReader<FocusUIEvent>>,
+
     sel: Res<crate::interaction::Selection>,
     mut sel_query: Query<
         (
@@ -143,13 +167,14 @@ fn ui(
 
                         let mut dummy = 0.;
                         use bevy_egui::egui::Widget;
-                        egui::widgets::DragValue::f32(match state.cur_axis {
+                        widgets.translate = egui::widgets::DragValue::f32(match state.cur_axis {
                             Some(TranslateHandle::X) => &mut state.translation.x,
                             Some(TranslateHandle::Y) => &mut state.translation.y,
                             Some(TranslateHandle::Z) => &mut state.translation.z,
                             _ => &mut dummy,
                         })
-                        .ui(&mut columns[1]);
+                        .ui(&mut columns[1])
+                        .id;
 
                         columns[2].with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
                             ui.horizontal(|ui| {
@@ -355,6 +380,14 @@ fn ui(
                 selected.0.rotation = Quat::from(tmp).normalize();
             }
             _ => {}
+        }
+    }
+
+    for ev in focus_reader.iter(&ev_focus) {
+        match ev {
+            FocusUIEvent::TranslateInput => {
+                ctx.memory().request_kb_focus(widgets.translate);
+            }
         }
     }
 }
