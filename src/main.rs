@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::camera::PerspectiveProjection};
+use bevy::{asset::AssetServerSettings, prelude::*, render::camera::PerspectiveProjection};
 use bevy_4x_camera::{CameraRig, CameraRigBundle, FourXCameraPlugin, KeyboardConf, MouseConf};
 use bevy_egui::EguiContext;
 use bevy_mod_picking::*;
@@ -108,11 +108,25 @@ fn load_specs(spec_dirs: &Vec<String>) -> Result<Vec<parts::PanelInfo>, std::io:
     Ok(out)
 }
 
+fn asset_server_settings() -> AssetServerSettings {
+    if let Some(proj_dirs) = directories::ProjectDirs::from("oss", "twitchyliquid64", "maker-panel")
+    {
+        if std::path::Path::new(proj_dirs.data_dir()).exists() {
+            return AssetServerSettings {
+                asset_folder: proj_dirs.data_dir().to_str().unwrap().clone().into(),
+            };
+        }
+    }
+
+    AssetServerSettings::default()
+}
+
 fn main() {
-    let args = Opt::from_args();
-    let specs = load_specs(&args.spec_dirs).unwrap();
+    let Opt { spec_dirs } = Opt::from_args();
+    let specs = load_specs(&spec_dirs).unwrap();
 
     App::build()
+        .add_resource(asset_server_settings())
         .add_resource(gui::Library(specs))
         .add_resource(Msaa { samples: 8 })
         .add_plugins(DefaultPlugins)

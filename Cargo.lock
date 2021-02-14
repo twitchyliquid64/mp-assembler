@@ -1313,6 +1313,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2b_simd"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afa748e348ad3be8263be728124b24a24f268266f6f5d58af9d75f6a40b5c587"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "constant_time_eq",
+]
+
+[[package]]
 name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1556,6 +1567,12 @@ name = "const_fn"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28b9d6de7f49e22cf97ad17fc4036ece69300032f45f78f30b4a4482cdc3f4a6"
+
+[[package]]
+name = "constant_time_eq"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "conv"
@@ -1897,6 +1914,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "directories"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "551a778172a450d7fc12e629ca3b0428d00f6afa9a43da1b630d54604e97371c"
+dependencies = [
+ "cfg-if 0.1.10",
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e93d7f5705de3e49895a2b5e0b8855a1c27f080192ae9c32a6432d50741a57a"
+dependencies = [
+ "libc",
+ "redox_users",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -3088,9 +3126,9 @@ dependencies = [
 
 [[package]]
 name = "maker-panel"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff3538fcc1decbd009b065d651c0c59459e68ee2cddb1734ce1ab2d426196e8b"
+checksum = "4637bbefa6540b6ba7ad1328ce11fadc22be46d365df0f14a17f08d66d46f4e3"
 dependencies = [
  "conv",
  "dyn-clone",
@@ -3299,6 +3337,7 @@ dependencies = [
  "bevy_mod_picking",
  "bevy_mod_raycast",
  "bevy_stl",
+ "directories",
  "genmesh",
  "maker-panel",
  "structopt",
@@ -4014,6 +4053,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_users"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de0737333e7a9502c789a36d7c7fa6092a49895d4faa31ca5df163857ded2e9d"
+dependencies = [
+ "getrandom 0.1.16",
+ "redox_syscall 0.1.57",
+ "rust-argon2",
+]
+
+[[package]]
 name = "regex"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4139,6 +4189,18 @@ dependencies = [
  "num-traits 0.2.14",
  "pdqselect",
  "smallvec",
+]
+
+[[package]]
+name = "rust-argon2"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b18820d944b33caa75a71378964ac46f58517c92b6ae5f762636247c09e78fb"
+dependencies = [
+ "base64 0.13.0",
+ "blake2b_simd",
+ "constant_time_eq",
+ "crossbeam-utils 0.8.1",
 ]
 
 [[package]]
