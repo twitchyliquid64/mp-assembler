@@ -2,7 +2,7 @@ pub use crate::interaction::Selectable;
 use bevy::prelude::*;
 use maker_panel::{Panel, SpecErr};
 
-use crate::gui::SpawnPartEvent;
+use crate::inspector_gui::SpawnPartEvent;
 
 pub struct Plugin;
 

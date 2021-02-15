@@ -5,9 +5,10 @@ use bevy_mod_picking::*;
 
 use structopt::StructOpt;
 
+mod dialog_gui;
 mod gizmo;
 mod grid;
-mod gui;
+mod inspector_gui;
 mod interaction;
 mod parts;
 
@@ -127,7 +128,7 @@ fn main() {
 
     App::build()
         .add_resource(asset_server_settings())
-        .add_resource(gui::Library(specs))
+        .add_resource(inspector_gui::Library(specs))
         .add_resource(Msaa { samples: 8 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PickingPlugin)
@@ -138,7 +139,8 @@ fn main() {
         .add_plugin(grid::Plugin)
         .add_plugin(gizmo::Plugin)
         .add_plugin(interaction::Plugin)
-        .add_plugin(gui::Plugin)
+        .add_plugin(inspector_gui::Plugin)
+        .add_plugin(dialog_gui::Plugin)
         .add_plugin(parts::Plugin)
         .run();
 }

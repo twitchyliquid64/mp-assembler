@@ -108,13 +108,14 @@ fn get_picks(
 }
 
 #[derive(Debug)]
-enum HotkeyEvent {
+pub enum HotkeyEvent {
     Escape,
     Delete,
     AxisX,
     AxisY,
     AxisZ,
     Edit,
+    Open,
 }
 
 fn get_keyboard(
@@ -131,6 +132,7 @@ fn get_keyboard(
             Some(KeyCode::F1) => Some(HotkeyEvent::AxisX),
             Some(KeyCode::F2) => Some(HotkeyEvent::AxisY),
             Some(KeyCode::F3) => Some(HotkeyEvent::AxisZ),
+            Some(KeyCode::F5) => Some(HotkeyEvent::Open),
             Some(KeyCode::R) => Some(HotkeyEvent::Edit),
             _ => None,
         };
@@ -214,7 +216,7 @@ fn gcd(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut ev_dragging: ResMut<Events<DragEvent>>,
-    mut ev_focus: ResMut<Events<crate::gui::FocusUIEvent>>,
+    mut ev_focus: ResMut<Events<crate::inspector_gui::FocusUIEvent>>,
 ) {
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
@@ -288,9 +290,10 @@ fn gcd(
             }
             HotkeyEvent::Edit => {
                 if let Selection::AxisFocused { .. } = &*selection {
-                    ev_focus.send(crate::gui::FocusUIEvent::TranslateInput);
+                    ev_focus.send(crate::inspector_gui::FocusUIEvent::TranslateInput);
                 }
             }
+            HotkeyEvent::Open => (),
         }
     }
 

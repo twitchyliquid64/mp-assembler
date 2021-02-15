@@ -184,7 +184,7 @@ fn ui(
                                         state.cur_axis == Some(TranslateHandle::Z),
                                         "Z",
                                     )
-                                    .clicked
+                                    .clicked()
                                 {
                                     state.cur_axis = Some(TranslateHandle::Z);
                                 }
@@ -193,7 +193,7 @@ fn ui(
                                         state.cur_axis == Some(TranslateHandle::Y),
                                         "Y",
                                     )
-                                    .clicked
+                                    .clicked()
                                 {
                                     state.cur_axis = Some(TranslateHandle::Y);
                                 }
@@ -202,7 +202,7 @@ fn ui(
                                         state.cur_axis == Some(TranslateHandle::X),
                                         "X",
                                     )
-                                    .clicked
+                                    .clicked()
                                 {
                                     state.cur_axis = Some(TranslateHandle::X);
                                 }
@@ -214,7 +214,7 @@ fn ui(
                     ui.columns(4, |columns| {
                         // columns[0].allocate_space(egui::Vec2::new(0., 1.));
                         columns[0].label("Rotation");
-                        if columns[3].small_button("reset all").clicked {
+                        if columns[3].small_button("reset all").clicked() {
                             reset_rotation = true;
                         }
                     });
@@ -228,7 +228,7 @@ fn ui(
                     ui.separator();
                     ui.allocate_space(egui::Vec2::new(0., 1.));
 
-                    if ui.button("Delete").clicked {
+                    if ui.button("Delete").clicked() {
                         if let Some(sel) = sel.entity() {
                             state.cur_axis = None;
                             commands.despawn_recursive(sel);
@@ -243,14 +243,20 @@ fn ui(
                     ui.horizontal(|ui| {
                         if ui
                             .selectable_label(state.spawn_selected == 0, "panel")
-                            .clicked
+                            .clicked()
                         {
                             state.spawn_selected = 0;
                         };
-                        if ui.selectable_label(state.spawn_selected == 1, "m3").clicked {
+                        if ui
+                            .selectable_label(state.spawn_selected == 1, "m3")
+                            .clicked()
+                        {
                             state.spawn_selected = 1;
                         };
-                        if ui.selectable_label(state.spawn_selected == 2, "m5").clicked {
+                        if ui
+                            .selectable_label(state.spawn_selected == 2, "m5")
+                            .clicked()
+                        {
                             state.spawn_selected = 2;
                         };
                     });
@@ -262,7 +268,7 @@ fn ui(
                                 .text("mm"),
                         );
                         ui.columns(3, |columns| {
-                            if columns[0].add(egui::Button::new("screw")).clicked {
+                            if columns[0].add(egui::Button::new("screw")).clicked() {
                                 spawner.send(SpawnPartEvent::Screw(
                                     match state.spawn_selected {
                                         1 => parts::Screw::M3,
@@ -272,14 +278,14 @@ fn ui(
                                     state.spawn_mm as usize,
                                 ));
                             };
-                            if columns[1].add(egui::Button::new("washer")).clicked {
+                            if columns[1].add(egui::Button::new("washer")).clicked() {
                                 spawner.send(SpawnPartEvent::Washer(match state.spawn_selected {
                                     1 => parts::Washer::M3,
                                     2 => parts::Washer::M5,
                                     _ => unreachable!(),
                                 }));
                             };
-                            if columns[2].add(egui::Button::new("nut")).clicked {
+                            if columns[2].add(egui::Button::new("nut")).clicked() {
                                 spawner.send(SpawnPartEvent::Nut(match state.spawn_selected {
                                     1 => parts::Nut::M3,
                                     2 => parts::Nut::M5,
@@ -295,7 +301,7 @@ fn ui(
                                     egui::Layout::top_down(egui::Align::Max),
                                     |ui| {
                                         if panel.well_formed() {
-                                            if ui.small_button("+").clicked {
+                                            if ui.small_button("+").clicked() {
                                                 spawner.send(SpawnPartEvent::Panel(
                                                     panel.clone(),
                                                     state.spawn_panel_hull,
@@ -403,18 +409,18 @@ fn rotation_component_ui(
         columns[0].label(label);
         columns[1].drag_angle(val);
         columns[2].horizontal(|ui| {
-            if ui.small_button("-").clicked {
+            if ui.small_button("-").clicked() {
                 *action = RotationAction::Sub;
             }
-            if ui.small_button("+").clicked {
+            if ui.small_button("+").clicked() {
                 *action = RotationAction::Add;
             }
         });
         columns[3].horizontal(|ui| {
-            if ui.button("N").clicked {
+            if ui.button("N").clicked() {
                 *action = RotationAction::Negate;
             }
-            if ui.button("R").clicked {
+            if ui.button("R").clicked() {
                 *action = RotationAction::Reset;
             }
         });
