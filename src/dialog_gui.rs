@@ -25,22 +25,38 @@ fn load_assets(_world: &mut World, resources: &mut Resources) {
     egui_context.set_egui_texture(1, asset_server.load("baseline_text_snippet_white_36dp.png"));
 }
 
-enum OpenIntent {
+pub(crate) enum FileNavIntent {
     SpecSelection,
 }
 
-impl OpenIntent {
+impl FileNavIntent {
     fn title(&self) -> &'static str {
         match self {
-            OpenIntent::SpecSelection => &"Add panel from spec",
+            FileNavIntent::SpecSelection => &"Add panel from spec",
+        }
+    }
+    fn filter(&self, entry: &(fs::DirEntry, fs::Metadata)) -> bool {
+        match self {
+            FileNavIntent::SpecSelection => {
+                (entry.1.is_dir()
+                    && !entry
+                        .0
+                        .path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .starts_with("."))
+                    || entry.0.path().extension() == Some(&std::ffi::OsStr::new("spec"))
+            }
         }
     }
 }
 
-enum DialogState {
+pub(crate) enum DialogState {
     None,
     Open {
-        intent: OpenIntent,
+        intent: FileNavIntent,
         current: path::PathBuf,
         contents: Vec<(fs::DirEntry, fs::Metadata)>,
     },
@@ -50,10 +66,6 @@ impl Default for DialogState {
     fn default() -> Self {
         DialogState::None
     }
-}
-
-pub enum DialogActionEvent {
-    Open,
 }
 
 fn read_dir(current: &path::PathBuf) -> Vec<(fs::DirEntry, fs::Metadata)> {
@@ -94,38 +106,48 @@ fn read_dir(current: &path::PathBuf) -> Vec<(fs::DirEntry, fs::Metadata)> {
     out
 }
 
-enum DialogAction {
+enum UiAction {
     TopbarNavigate(usize),
+    DirEntryNavigate((path::PathBuf, fs::Metadata)),
+}
+
+pub enum DialogHotkeyEvent {
+    Open,
+    Escape,
 }
 
 fn ui(
-    commands: &mut Commands,
-    library: ResMut<Library>,
+    cmd_args: Res<crate::CmdArgs>,
+    mut library: ResMut<Library>,
 
-    ev_hotkey: Res<Events<HotkeyEvent>>,
-    mut hotkey_reader: Local<EventReader<HotkeyEvent>>,
+    ev_hotkey: Res<Events<DialogHotkeyEvent>>,
+    mut hotkey_reader: Local<EventReader<DialogHotkeyEvent>>,
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<DialogState>,
 ) {
-    let mut action: Option<DialogAction> = None;
+    let mut action: Option<UiAction> = None;
 
     for ev in hotkey_reader.iter(&ev_hotkey) {
         match ev {
-            HotkeyEvent::Open => {
-                let current = directories::BaseDirs::new()
-                    .unwrap()
-                    .home_dir()
-                    .to_path_buf();
+            DialogHotkeyEvent::Open => {
+                let current = if cmd_args.0.spec_dirs.len() == 0 {
+                    directories::BaseDirs::new()
+                        .unwrap()
+                        .home_dir()
+                        .to_path_buf()
+                } else {
+                    cmd_args.0.spec_dirs[0].clone().into()
+                };
                 let contents = read_dir(&current);
 
                 *state = DialogState::Open {
                     current,
                     contents,
-                    intent: OpenIntent::SpecSelection,
+                    intent: FileNavIntent::SpecSelection,
                 };
             }
-            HotkeyEvent::Escape => {
+            DialogHotkeyEvent::Escape => {
                 *state = DialogState::None;
             }
             _ => {}
@@ -159,7 +181,7 @@ fn ui(
                                 .selectable_label(last == Some(c), c.to_str().unwrap())
                                 .clicked()
                             {
-                                action = Some(DialogAction::TopbarNavigate(i));
+                                action = Some(UiAction::TopbarNavigate(i));
                             };
                         }
                     });
@@ -169,7 +191,7 @@ fn ui(
                     egui::containers::ScrollArea::auto_sized()
                         .id_source("files")
                         .show(ui, |ui| {
-                            for entry in contents {
+                            for entry in contents.iter().filter(|e| intent.filter(e)) {
                                 ui.horizontal(|ui| {
                                     ui.allocate_ui(egui::Vec2::new(32., 16.), |ui| {
                                         if entry.1.is_dir() {
@@ -191,11 +213,21 @@ fn ui(
                                         }
                                     });
                                     if let Some(name) = entry.0.path().file_name() {
-                                        ui.label(name.to_str().unwrap());
+                                        if ui.button(name.to_str().unwrap()).clicked() {
+                                            action = Some(UiAction::DirEntryNavigate((
+                                                entry.0.path(),
+                                                entry.1.clone(),
+                                            )));
+                                        }
                                     }
                                 });
                             }
                         });
+
+                    ui.allocate_space(egui::Vec2::new(
+                        10.,
+                        ui.available_rect_before_wrap_finite().height() - 25.,
+                    ));
                 });
         }
     }
@@ -206,7 +238,7 @@ fn ui(
                 DialogState::Open {
                     current, contents, ..
                 },
-                DialogAction::TopbarNavigate(idx),
+                UiAction::TopbarNavigate(idx),
             ) => {
                 for _ in 0..(current
                     .components()
@@ -217,6 +249,36 @@ fn ui(
                     current.pop();
                 }
                 *contents = read_dir(&current);
+            }
+            (
+                DialogState::Open {
+                    current,
+                    contents,
+                    intent,
+                    ..
+                },
+                UiAction::DirEntryNavigate((ref path, ref meta)),
+            ) => {
+                if meta.is_dir() {
+                    *current = path.to_path_buf();
+                    *contents = read_dir(&current);
+                } else {
+                    match intent {
+                        FileNavIntent::SpecSelection => match std::fs::read(path) {
+                            Ok(contents) => {
+                                let spec = crate::parts::PanelInfo::new(
+                                    path.to_str().unwrap().to_string(),
+                                    String::from_utf8_lossy(&contents).to_string(),
+                                );
+                                library.0.push(spec);
+                                *state = DialogState::None;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed reading {:?}: {:?}", path, e);
+                            }
+                        },
+                    }
+                }
             }
             _ => {}
         }

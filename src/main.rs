@@ -86,7 +86,7 @@ fn startup(commands: &mut Commands) {
 
 #[derive(Debug, StructOpt, Clone)]
 #[structopt(name = "mp-assembler", about = "Visualize maker-panel geometry")]
-struct Opt {
+pub struct Opt {
     spec_dirs: Vec<String>,
 }
 
@@ -122,14 +122,17 @@ fn asset_server_settings() -> AssetServerSettings {
     AssetServerSettings::default()
 }
 
+pub struct CmdArgs(pub Opt);
+
 fn main() {
-    let Opt { spec_dirs } = Opt::from_args();
-    let specs = load_specs(&spec_dirs).unwrap();
+    let opt = Opt::from_args();
+    let specs = load_specs(&opt.spec_dirs).unwrap();
 
     App::build()
         .add_resource(asset_server_settings())
         .add_resource(inspector_gui::Library(specs))
         .add_resource(Msaa { samples: 8 })
+        .add_resource(CmdArgs(opt))
         .add_plugins(DefaultPlugins)
         .add_plugin(PickingPlugin)
         .add_plugin(bevy_stl::StlPlugin)

@@ -72,6 +72,7 @@ impl bevy::prelude::Plugin for Plugin {
             .add_event::<HotkeyEvent>()
             .add_system(get_keyboard.system())
             .add_event::<DragEvent>()
+            .add_event::<crate::dialog_gui::DialogHotkeyEvent>()
             .add_resource(AxisEntity::default())
             .add_system(gcd.system())
             .add_event::<EntityDragEvent>()
@@ -208,6 +209,7 @@ fn gcd(
     ev_hotkey: Res<Events<HotkeyEvent>>,
     mut hotkey_reader: Local<EventReader<HotkeyEvent>>,
 
+    dialog: Res<crate::dialog_gui::DialogState>,
     mut selection: ResMut<Selection>,
     selection_query: Query<&Transform, With<Selectable>>,
     commands: &mut Commands,
@@ -217,6 +219,7 @@ fn gcd(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut ev_dragging: ResMut<Events<DragEvent>>,
     mut ev_focus: ResMut<Events<crate::inspector_gui::FocusUIEvent>>,
+    mut ev_dialog: ResMut<Events<crate::dialog_gui::DialogHotkeyEvent>>,
 ) {
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
@@ -251,7 +254,11 @@ fn gcd(
     for ev in hotkey_reader.iter(&ev_hotkey) {
         match ev {
             HotkeyEvent::Escape => {
-                *selection = Selection::None;
+                if matches!(&*dialog, &crate::dialog_gui::DialogState::None) {
+                    *selection = Selection::None;
+                } else {
+                    ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::Escape);
+                }
             }
             HotkeyEvent::Delete => {
                 if let Some(sel) = selection.entity() {
@@ -293,7 +300,7 @@ fn gcd(
                     ev_focus.send(crate::inspector_gui::FocusUIEvent::TranslateInput);
                 }
             }
-            HotkeyEvent::Open => (),
+            HotkeyEvent::Open => ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::Open),
         }
     }
 
