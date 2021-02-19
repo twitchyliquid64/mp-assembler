@@ -1,6 +1,7 @@
 pub use crate::interaction::Selectable;
 use bevy::prelude::*;
 use maker_panel::{Panel, SpecErr};
+use serde::{Deserialize, Serialize};
 
 use crate::inspector_gui::SpawnPartEvent;
 
@@ -13,7 +14,7 @@ impl bevy::prelude::Plugin for Plugin {
 }
 
 /// Component that is present on all screw entities
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Screw {
     M3,
     M5,
@@ -35,7 +36,7 @@ pub struct ScrewBundle {
 }
 
 /// Component that is present on all washer entities
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Washer {
     M3,
     M5,
@@ -57,7 +58,7 @@ pub struct WasherBundle {
 }
 
 /// Component that is present on all nut entities
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Nut {
     M3,
     M5,
@@ -110,6 +111,10 @@ impl PanelInfo {
         let mut panel = Panel::new();
         panel.push_spec(&self.spec);
         panel
+    }
+
+    pub fn split(self) -> (String, String, bool) {
+        (self.path, self.spec, self.convex_hull)
     }
 }
 

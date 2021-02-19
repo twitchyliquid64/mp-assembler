@@ -11,6 +11,7 @@ mod grid;
 mod inspector_gui;
 mod interaction;
 mod parts;
+mod storage;
 
 fn interaction_state(
     egui: Res<EguiContext>,
@@ -145,5 +146,6 @@ fn main() {
         .add_plugin(inspector_gui::Plugin)
         .add_plugin(dialog_gui::Plugin)
         .add_plugin(parts::Plugin)
+        .add_plugin(storage::Plugin)
         .run();
 }

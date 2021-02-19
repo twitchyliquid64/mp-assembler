@@ -116,7 +116,10 @@ pub enum HotkeyEvent {
     AxisY,
     AxisZ,
     Edit,
+
     Open,
+
+    Save,
 }
 
 fn get_keyboard(
@@ -127,19 +130,22 @@ fn get_keyboard(
 ) {
     let mut keys: Vec<HotkeyEvent> = Vec::new();
     for event in keys_reader.iter(&ev_keys) {
-        let event = match event.key_code {
-            Some(KeyCode::Escape) => Some(HotkeyEvent::Escape),
-            Some(KeyCode::Delete) => Some(HotkeyEvent::Delete),
-            Some(KeyCode::F1) => Some(HotkeyEvent::AxisX),
-            Some(KeyCode::F2) => Some(HotkeyEvent::AxisY),
-            Some(KeyCode::F3) => Some(HotkeyEvent::AxisZ),
-            Some(KeyCode::F5) => Some(HotkeyEvent::Open),
-            Some(KeyCode::R) => Some(HotkeyEvent::Edit),
-            _ => None,
-        };
+        if event.state.is_pressed() {
+            let event = match event.key_code {
+                Some(KeyCode::Escape) => Some(HotkeyEvent::Escape),
+                Some(KeyCode::Delete) => Some(HotkeyEvent::Delete),
+                Some(KeyCode::F1) => Some(HotkeyEvent::AxisX),
+                Some(KeyCode::F2) => Some(HotkeyEvent::AxisY),
+                Some(KeyCode::F3) => Some(HotkeyEvent::AxisZ),
+                Some(KeyCode::F5) => Some(HotkeyEvent::Open),
+                Some(KeyCode::F6) => Some(HotkeyEvent::Save),
+                Some(KeyCode::R) => Some(HotkeyEvent::Edit),
+                _ => None,
+            };
 
-        if let Some(e) = event {
-            keys.push(e);
+            if let Some(e) = event {
+                keys.push(e);
+            }
         }
     }
 
@@ -217,10 +223,15 @@ fn gcd(
     mut axis_entity: ResMut<AxisEntity>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut ev_dragging: ResMut<Events<DragEvent>>,
-    mut ev_focus: ResMut<Events<crate::inspector_gui::FocusUIEvent>>,
-    mut ev_dialog: ResMut<Events<crate::dialog_gui::DialogHotkeyEvent>>,
+    mut out_events: (
+        ResMut<Events<DragEvent>>,
+        ResMut<Events<crate::inspector_gui::FocusUIEvent>>,
+        ResMut<Events<crate::dialog_gui::DialogHotkeyEvent>>,
+        ResMut<Events<crate::storage::StorageEvent>>,
+    ),
 ) {
+    let (mut ev_dragging, mut ev_focus, mut ev_dialog, mut ev_storage) = out_events;
+
     // Handle any 'parent clicked' event, updating the Selection resource.
     for ev in clicked_reader.iter(&ev_clicked) {
         if let Ok(transform) = selection_query.get(ev.0) {
@@ -300,7 +311,8 @@ fn gcd(
                     ev_focus.send(crate::inspector_gui::FocusUIEvent::TranslateInput);
                 }
             }
-            HotkeyEvent::Open => ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::Open),
+            HotkeyEvent::Open => ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::AddSpec),
+            HotkeyEvent::Save => ev_storage.send(crate::storage::StorageEvent::Save),
         }
     }
 

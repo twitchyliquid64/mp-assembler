@@ -3351,6 +3351,8 @@ dependencies = [
  "directories",
  "genmesh",
  "maker-panel",
+ "serde",
+ "serde_json",
  "structopt",
 ]
 
