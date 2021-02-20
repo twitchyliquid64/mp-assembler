@@ -405,12 +405,13 @@ fn ui(
                                             spec,
                                             convex_hull,
                                             pos,
+                                            color,
                                         } => {
                                             let panel = crate::parts::PanelInfo::new(path, spec);
                                             spawner.send(SpawnPartEvent::Panel(
                                                 panel,
                                                 convex_hull,
-                                                [0.2, 0.5, 0.2],
+                                                color,
                                                 Some(pos.into()),
                                             ))
                                         }
@@ -469,7 +470,7 @@ fn ui(
                     match intent {
                         FileNavIntent::SaveScene => match std::fs::File::create(path) {
                             Ok(f) => {
-                                if let Ok(_) = serde_json::to_writer(f, scene) {
+                                if let Ok(_) = serde_json::to_writer_pretty(f, scene) {
                                     *state = DialogState::None;
                                 }
                             }

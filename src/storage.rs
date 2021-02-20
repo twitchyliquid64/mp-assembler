@@ -3,7 +3,7 @@ use bevy_mod_picking::*;
 use serde::{Deserialize, Serialize};
 
 use crate::interaction::Selectable;
-use crate::parts::{Nut, PanelInfo, Pcb, Screw, ScrewLength, Washer};
+use crate::parts::{Nut, PanelDecorations, PanelInfo, Pcb, Screw, ScrewLength, Washer};
 
 pub struct Plugin;
 
@@ -30,6 +30,7 @@ fn saver(
             Option<&Washer>,
             Option<&Nut>,
             Option<&PanelInfo>,
+            Option<&PanelDecorations>,
         ),
         With<Selectable>,
     >,
@@ -114,6 +115,7 @@ pub(crate) enum ObjectRep {
         path: String,
         spec: String,
         convex_hull: bool,
+        color: [f32; 3],
     },
     None,
 }
@@ -126,6 +128,7 @@ impl
         Option<&Washer>,
         Option<&Nut>,
         Option<&PanelInfo>,
+        Option<&PanelDecorations>,
     )> for ObjectRep
 {
     fn from(
@@ -136,9 +139,10 @@ impl
             Option<&Washer>,
             Option<&Nut>,
             Option<&PanelInfo>,
+            Option<&PanelDecorations>,
         ),
     ) -> Self {
-        let (transform, screw, length, washer, nut, panel) = info;
+        let (transform, screw, length, washer, nut, panel, panel_dec) = info;
         if let Some(screw) = screw {
             return ObjectRep::Screw {
                 pos: transform.into(),
@@ -160,10 +164,18 @@ impl
         }
         if let Some(panel) = panel {
             let (path, spec, convex_hull) = panel.clone().split();
+
+            let color = if let Some(panel_dec) = panel_dec {
+                panel_dec.color
+            } else {
+                [0.2, 0.5, 0.2]
+            };
+
             return ObjectRep::Panel {
                 path,
                 spec,
                 convex_hull,
+                color,
                 pos: transform.into(),
             };
         }

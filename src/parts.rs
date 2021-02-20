@@ -90,6 +90,11 @@ pub struct NutBundle {
 }
 
 #[derive(Debug, Clone)]
+pub struct PanelDecorations {
+    pub color: [f32; 3],
+}
+
+#[derive(Debug, Clone)]
 pub struct PanelInfo {
     spec: String,
     path: String,
@@ -137,6 +142,7 @@ pub struct Pcb;
 #[derive(Bundle, Debug)]
 pub struct PcbBundle {
     panel: PanelInfo,
+    decorations: PanelDecorations,
     pcb: Pcb,
     selectable: Selectable,
     pub transform: Transform,
@@ -146,11 +152,16 @@ pub struct PcbBundle {
 }
 
 impl PcbBundle {
-    pub fn new_with_panel(panel: PanelInfo, transform: Transform) -> Self {
+    pub fn new_with_panel(
+        panel: PanelInfo,
+        transform: Transform,
+        decorations: PanelDecorations,
+    ) -> Self {
         let path = panel.path.clone();
         Self {
             panel,
             transform,
+            decorations,
             pcb: Pcb::default(),
             selectable: Selectable::default(),
             global_transform: GlobalTransform::default(),
@@ -403,7 +414,13 @@ fn spawner(
                     &mut commands,
                     &mut materials,
                     &mut meshes,
-                    PcbBundle::new_with_panel(panel.clone(), transform),
+                    PcbBundle::new_with_panel(
+                        panel.clone(),
+                        transform,
+                        PanelDecorations {
+                            color: color.clone(),
+                        },
+                    ),
                     PbrBundle {
                         mesh,
                         material,
