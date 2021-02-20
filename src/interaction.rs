@@ -124,6 +124,7 @@ pub enum HotkeyEvent {
 }
 
 fn get_keyboard(
+    dialog: Res<crate::dialog_gui::DialogState>,
     ev_keys: Res<Events<KeyboardInput>>,
     mut keys_reader: Local<EventReader<KeyboardInput>>,
 
@@ -132,16 +133,30 @@ fn get_keyboard(
     let mut keys: Vec<HotkeyEvent> = Vec::new();
     for event in keys_reader.iter(&ev_keys) {
         if event.state.is_pressed() {
-            let event = match event.key_code {
-                Some(KeyCode::Escape) => Some(HotkeyEvent::Escape),
-                Some(KeyCode::Delete) => Some(HotkeyEvent::Delete),
-                Some(KeyCode::F1) => Some(HotkeyEvent::AxisX),
-                Some(KeyCode::F2) => Some(HotkeyEvent::AxisY),
-                Some(KeyCode::F3) => Some(HotkeyEvent::AxisZ),
-                Some(KeyCode::F5) => Some(HotkeyEvent::Open),
-                Some(KeyCode::F6) => Some(HotkeyEvent::Save),
-                Some(KeyCode::F7) => Some(HotkeyEvent::Load),
-                Some(KeyCode::R) => Some(HotkeyEvent::Edit),
+            let event = match (event.key_code, &*dialog) {
+                (Some(KeyCode::Escape), _) => Some(HotkeyEvent::Escape),
+                (Some(KeyCode::Delete), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::Delete)
+                }
+                (Some(KeyCode::F1), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::AxisX)
+                }
+                (Some(KeyCode::F2), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::AxisY)
+                }
+                (Some(KeyCode::F3), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::AxisZ)
+                }
+                (Some(KeyCode::F5), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::Open)
+                }
+                (Some(KeyCode::F6), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::Save)
+                }
+                (Some(KeyCode::F7), crate::dialog_gui::DialogState::None) => {
+                    Some(HotkeyEvent::Load)
+                }
+                (Some(KeyCode::R), crate::dialog_gui::DialogState::None) => Some(HotkeyEvent::Edit),
                 _ => None,
             };
 

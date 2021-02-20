@@ -103,6 +103,8 @@ fn ui(
     >,
 
     mut spawner: ResMut<Events<SpawnPartEvent>>,
+    mut ev_dialog: ResMut<Events<crate::dialog_gui::DialogHotkeyEvent>>,
+    mut ev_storage: ResMut<Events<crate::storage::StorageEvent>>,
 ) {
     let selected = match sel.entity() {
         Some(e) => {
@@ -323,12 +325,31 @@ fn ui(
                                 );
                             });
                         }
+                        ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
+                            if ui.button("Load spec").clicked() {
+                                ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::AddSpec);
+                            }
+                        });
                         ui.separator();
+
                         ui.horizontal(|ui| {
                             ui.checkbox(&mut state.spawn_panel_hull, "Convex hull");
                             ui.color_edit_button_rgb(&mut state.spawn_panel_color);
                         });
                     }
+                });
+
+            egui::CollapsingHeader::new("Assembly")
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("From file").clicked() {
+                            ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::LoadScene);
+                        }
+                        if ui.button("Save As").clicked() {
+                            ev_storage.send(crate::storage::StorageEvent::Save);
+                        }
+                    });
                 });
         });
 
