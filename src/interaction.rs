@@ -120,6 +120,7 @@ pub enum HotkeyEvent {
     Open,
 
     Save,
+    Load,
 }
 
 fn get_keyboard(
@@ -139,6 +140,7 @@ fn get_keyboard(
                 Some(KeyCode::F3) => Some(HotkeyEvent::AxisZ),
                 Some(KeyCode::F5) => Some(HotkeyEvent::Open),
                 Some(KeyCode::F6) => Some(HotkeyEvent::Save),
+                Some(KeyCode::F7) => Some(HotkeyEvent::Load),
                 Some(KeyCode::R) => Some(HotkeyEvent::Edit),
                 _ => None,
             };
@@ -312,6 +314,7 @@ fn gcd(
                 }
             }
             HotkeyEvent::Open => ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::AddSpec),
+            HotkeyEvent::Load => ev_dialog.send(crate::dialog_gui::DialogHotkeyEvent::LoadScene),
             HotkeyEvent::Save => ev_storage.send(crate::storage::StorageEvent::Save),
         }
     }

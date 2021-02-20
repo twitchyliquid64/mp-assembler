@@ -13,6 +13,15 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ScrewLength(pub usize);
+
+impl Default for ScrewLength {
+    fn default() -> Self {
+        ScrewLength(8)
+    }
+}
+
 /// Component that is present on all screw entities
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Screw {
@@ -31,6 +40,7 @@ impl Default for Screw {
 pub struct ScrewBundle {
     screw: Screw,
     selectable: Selectable,
+    length: ScrewLength,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -136,13 +146,13 @@ pub struct PcbBundle {
 }
 
 impl PcbBundle {
-    pub fn new_with_panel(panel: PanelInfo) -> Self {
+    pub fn new_with_panel(panel: PanelInfo, transform: Transform) -> Self {
         let path = panel.path.clone();
         Self {
             panel,
+            transform,
             pcb: Pcb::default(),
             selectable: Selectable::default(),
-            transform: Transform::default(),
             global_transform: GlobalTransform::default(),
             geometry: Geometry::Spec(path),
         }
@@ -198,6 +208,7 @@ fn spawn_screw(
         .spawn(ScrewBundle {
             transform,
             screw,
+            length: ScrewLength(length),
             ..ScrewBundle::default()
         })
         .with_children(|parent| {
@@ -375,55 +386,78 @@ fn spawner(
 ) {
     for ev in spawn_reader.iter(&ev_spawn) {
         match ev {
-            SpawnPartEvent::Panel(panel, convex_hull, color) => {
+            SpawnPartEvent::Panel(panel, convex_hull, color, transform) => {
                 let mut p = panel.panel();
                 p.convex_hull(*convex_hull);
 
                 let mesh = meshes.add(build_panel_mesh(p.tessellate_3d().unwrap()));
                 let material = materials.add(Color::rgb(color[0], color[1], color[2]).into());
 
+                let transform = if let Some(t) = transform {
+                    t.clone()
+                } else {
+                    Transform::identity()
+                };
+
                 spawn_pcb(
                     &mut commands,
                     &mut materials,
                     &mut meshes,
-                    PcbBundle::new_with_panel(panel.clone()),
+                    PcbBundle::new_with_panel(panel.clone(), transform),
                     PbrBundle {
                         mesh,
                         material,
-                        transform: Transform::identity(),
                         ..Default::default()
                     },
                 )
             }
-            SpawnPartEvent::Screw(screw, length) => {
+            SpawnPartEvent::Screw(screw, length, transform) => {
+                let transform = if let Some(t) = transform {
+                    t.clone()
+                } else {
+                    Transform::from_translation(Vec3::new(0., 10., 0.))
+                };
+
                 spawn_screw(
                     screw.clone(),
                     &mut commands,
                     &asset_server,
                     &mut materials,
                     &mut meshes,
-                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                    transform,
                     *length,
                 );
             }
-            SpawnPartEvent::Washer(washer) => {
+            SpawnPartEvent::Washer(washer, transform) => {
+                let transform = if let Some(t) = transform {
+                    t.clone()
+                } else {
+                    Transform::from_translation(Vec3::new(0., 10., 0.))
+                };
+
                 spawn_washer(
                     washer.clone(),
                     &mut commands,
                     &asset_server,
                     &mut materials,
                     &mut meshes,
-                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                    transform,
                 );
             }
-            SpawnPartEvent::Nut(nut) => {
+            SpawnPartEvent::Nut(nut, transform) => {
+                let transform = if let Some(t) = transform {
+                    t.clone()
+                } else {
+                    Transform::from_translation(Vec3::new(0., 10., 0.))
+                };
+
                 spawn_nut(
                     nut.clone(),
                     &mut commands,
                     &asset_server,
                     &mut materials,
                     &mut meshes,
-                    Transform::from_translation(Vec3::new(0., 10., 0.)),
+                    transform,
                 );
             }
         }

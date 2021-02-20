@@ -21,10 +21,10 @@ pub struct Library(pub Vec<PanelInfo>);
 
 #[derive(Debug)]
 pub enum SpawnPartEvent {
-    Panel(PanelInfo, bool, [f32; 3]),
-    Screw(parts::Screw, usize),
-    Washer(parts::Washer),
-    Nut(parts::Nut),
+    Panel(PanelInfo, bool, [f32; 3], Option<Transform>),
+    Screw(parts::Screw, usize, Option<Transform>),
+    Washer(parts::Washer, Option<Transform>),
+    Nut(parts::Nut, Option<Transform>),
 }
 
 #[derive(Debug)]
@@ -276,21 +276,28 @@ fn ui(
                                         _ => unreachable!(),
                                     },
                                     state.spawn_mm as usize,
+                                    None,
                                 ));
                             };
                             if columns[1].add(egui::Button::new("washer")).clicked() {
-                                spawner.send(SpawnPartEvent::Washer(match state.spawn_selected {
-                                    1 => parts::Washer::M3,
-                                    2 => parts::Washer::M5,
-                                    _ => unreachable!(),
-                                }));
+                                spawner.send(SpawnPartEvent::Washer(
+                                    match state.spawn_selected {
+                                        1 => parts::Washer::M3,
+                                        2 => parts::Washer::M5,
+                                        _ => unreachable!(),
+                                    },
+                                    None,
+                                ));
                             };
                             if columns[2].add(egui::Button::new("nut")).clicked() {
-                                spawner.send(SpawnPartEvent::Nut(match state.spawn_selected {
-                                    1 => parts::Nut::M3,
-                                    2 => parts::Nut::M5,
-                                    _ => unreachable!(),
-                                }));
+                                spawner.send(SpawnPartEvent::Nut(
+                                    match state.spawn_selected {
+                                        1 => parts::Nut::M3,
+                                        2 => parts::Nut::M5,
+                                        _ => unreachable!(),
+                                    },
+                                    None,
+                                ));
                             };
                         });
                     } else {
@@ -306,6 +313,7 @@ fn ui(
                                                     panel.clone(),
                                                     state.spawn_panel_hull,
                                                     state.spawn_panel_color,
+                                                    None,
                                                 ));
                                             }
                                         } else {

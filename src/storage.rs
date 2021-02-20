@@ -3,7 +3,7 @@ use bevy_mod_picking::*;
 use serde::{Deserialize, Serialize};
 
 use crate::interaction::Selectable;
-use crate::parts::{Nut, PanelInfo, Pcb, Screw, Washer};
+use crate::parts::{Nut, PanelInfo, Pcb, Screw, ScrewLength, Washer};
 
 pub struct Plugin;
 
@@ -26,6 +26,7 @@ fn saver(
         (
             &Transform,
             Option<&Screw>,
+            Option<&ScrewLength>,
             Option<&Washer>,
             Option<&Nut>,
             Option<&PanelInfo>,
@@ -54,8 +55,17 @@ fn saver(
     }
 }
 
+pub(crate) fn decode_scene(json: &Vec<u8>) -> Vec<ObjectRep> {
+    let decode: Result<Vec<ObjectRep>, _> = serde_json::from_slice(json);
+    if let Ok(objs) = decode {
+        objs
+    } else {
+        vec![]
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Pos {
+pub(crate) struct Pos {
     x: f32,
     y: f32,
     z: f32,
@@ -85,10 +95,11 @@ impl Into<Transform> for Pos {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-enum ObjectRep {
+pub(crate) enum ObjectRep {
     Screw {
         pos: Pos,
         screw: Screw,
+        length: usize,
     },
     Nut {
         pos: Pos,
@@ -111,6 +122,7 @@ impl
     From<(
         &Transform,
         Option<&Screw>,
+        Option<&ScrewLength>,
         Option<&Washer>,
         Option<&Nut>,
         Option<&PanelInfo>,
@@ -120,16 +132,18 @@ impl
         info: (
             &Transform,
             Option<&Screw>,
+            Option<&ScrewLength>,
             Option<&Washer>,
             Option<&Nut>,
             Option<&PanelInfo>,
         ),
     ) -> Self {
-        let (transform, screw, washer, nut, panel) = info;
+        let (transform, screw, length, washer, nut, panel) = info;
         if let Some(screw) = screw {
             return ObjectRep::Screw {
                 pos: transform.into(),
                 screw: screw.clone(),
+                length: length.unwrap().0,
             };
         }
         if let Some(nut) = nut {

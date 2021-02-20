@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::*;
 
-use crate::inspector_gui::Library;
+use crate::inspector_gui::{Library, SpawnPartEvent};
 use crate::interaction::HotkeyEvent;
 
 use std::{fs, path};
@@ -28,6 +28,7 @@ fn load_assets(_world: &mut World, resources: &mut Resources) {
 pub(crate) enum FileNavIntent {
     SpecSelection,
     SaveScene,
+    OpenScene,
 }
 
 impl FileNavIntent {
@@ -35,6 +36,7 @@ impl FileNavIntent {
         match self {
             FileNavIntent::SpecSelection => &"Add panel from spec",
             FileNavIntent::SaveScene => &"Save assembly",
+            FileNavIntent::OpenScene => &"Insert assembly",
         }
     }
     fn filter(&self, entry: &(fs::DirEntry, fs::Metadata)) -> bool {
@@ -52,7 +54,7 @@ impl FileNavIntent {
                     || entry.0.path().extension() == Some(&std::ffi::OsStr::new("spec"))
             }
 
-            FileNavIntent::SaveScene => {
+            FileNavIntent::SaveScene | FileNavIntent::OpenScene => {
                 (entry.1.is_dir()
                     && !entry
                         .0
@@ -138,6 +140,7 @@ pub enum DialogHotkeyEvent {
     AddSpec,
     Escape,
     SaveScene(serde_json::Value),
+    LoadScene,
 }
 
 fn draw_files(
@@ -182,6 +185,8 @@ fn ui(
 
     mut egui_context: ResMut<EguiContext>,
     mut state: ResMut<DialogState>,
+
+    mut spawner: ResMut<Events<SpawnPartEvent>>,
 ) {
     let mut action: Option<UiAction> = None;
 
@@ -202,6 +207,23 @@ fn ui(
                     current,
                     contents,
                     intent: FileNavIntent::SpecSelection,
+                };
+            }
+            DialogHotkeyEvent::LoadScene => {
+                let current = if cmd_args.0.spec_dirs.len() == 0 {
+                    directories::BaseDirs::new()
+                        .unwrap()
+                        .home_dir()
+                        .to_path_buf()
+                } else {
+                    cmd_args.0.spec_dirs[0].clone().into()
+                };
+                let contents = read_dir(&current);
+
+                *state = DialogState::Open {
+                    current,
+                    contents,
+                    intent: FileNavIntent::OpenScene,
                 };
             }
             DialogHotkeyEvent::SaveScene(scene) => {
@@ -367,6 +389,42 @@ fn ui(
                                     String::from_utf8_lossy(&contents).to_string(),
                                 );
                                 library.0.push(spec);
+                                *state = DialogState::None;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed reading {:?}: {:?}", path, e);
+                            }
+                        },
+                        FileNavIntent::OpenScene => match std::fs::read(path) {
+                            Ok(contents) => {
+                                use crate::storage::ObjectRep;
+                                for obj in crate::storage::decode_scene(&contents) {
+                                    match obj {
+                                        ObjectRep::Panel {
+                                            path,
+                                            spec,
+                                            convex_hull,
+                                            pos,
+                                        } => {
+                                            let panel = crate::parts::PanelInfo::new(path, spec);
+                                            spawner.send(SpawnPartEvent::Panel(
+                                                panel,
+                                                convex_hull,
+                                                [0.2, 0.5, 0.2],
+                                                Some(pos.into()),
+                                            ))
+                                        }
+                                        ObjectRep::Screw { pos, screw, length } => spawner.send(
+                                            SpawnPartEvent::Screw(screw, length, Some(pos.into())),
+                                        ),
+                                        ObjectRep::Washer { pos, washer } => spawner
+                                            .send(SpawnPartEvent::Washer(washer, Some(pos.into()))),
+                                        ObjectRep::Nut { pos, nut } => {
+                                            spawner.send(SpawnPartEvent::Nut(nut, Some(pos.into())))
+                                        }
+                                        _ => (),
+                                    }
+                                }
                                 *state = DialogState::None;
                             }
                             Err(e) => {
