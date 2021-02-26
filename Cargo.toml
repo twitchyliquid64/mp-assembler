@@ -11,6 +11,7 @@ bevy_egui = "0.2"
 bevy_stl = "0.2"
 bevy_mod_picking = "0.3"
 genmesh = "0.6"
+raqote = "0.7.14"
 
 bevy_mod_raycast = { git = "https://github.com/aevyrie/bevy_mod_raycast", branch = "master" }
 

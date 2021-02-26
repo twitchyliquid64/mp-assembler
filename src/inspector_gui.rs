@@ -51,7 +51,7 @@ impl Default for GUIState {
             spawn_selected: 0,
             spawn_mm: 12,
             spawn_panel_hull: false,
-            spawn_panel_color: [0.2, 0.5, 0.2],
+            spawn_panel_color: [0.1, 0.4, 0.1],
             translation: Vec3::default(),
             rotation: Vec4::default(),
             cur_axis: None,

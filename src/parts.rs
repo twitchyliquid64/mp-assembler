@@ -1,5 +1,6 @@
 pub use crate::interaction::Selectable;
 use bevy::prelude::*;
+use bevy::render::texture::{Extent3d, TextureDimension, TextureFormat};
 use maker_panel::{Panel, SpecErr};
 use serde::{Deserialize, Serialize};
 
@@ -326,6 +327,110 @@ fn spawn_nut(
         });
 }
 
+fn build_panel_texture(
+    atoms: Vec<maker_panel::features::InnerAtom>,
+    color: &[f32; 3],
+    vertexes: &Vec<[f64; 3]>,
+) -> Texture {
+    use maker_panel::features::InnerAtom;
+    use raqote::*;
+    use std::f32::MAX;
+
+    let ((x_min, x_max), (y_min, y_max)) = vertexes.iter().fold(
+        ((MAX, -MAX), (MAX, -MAX)),
+        |((x_min, x_max), (y_min, y_max)), v| {
+            let (x, y) = (v[0] as f32, v[1] as f32);
+            ((x_min.min(x), x_max.max(x)), (y_min.min(y), y_max.max(y)))
+        },
+    );
+
+    let (width, height) = (1000, 1000);
+    let mut dt = DrawTarget::new(width, height);
+    dt.clear(SolidSource::from_unpremultiplied_argb(
+        255,
+        (color[0] * 255.).ceil() as u8,
+        (color[1] * 255.).ceil() as u8,
+        (color[2] * 255.).ceil() as u8,
+    ));
+
+    // let (dx, dy) = ((xb.1 - xb.0).ceil() as usize, (yb.1 - yb.0).ceil() as usize);
+    let map = |x: f32, y: f32| {
+        (
+            (x - x_min) * (width as f32 - 0.) / (x_max - x_min) + 0.,
+            (y - y_min) * (height as f32 - 0.) / (y_max - y_min) + 0.,
+        )
+    };
+
+    for a in atoms {
+        match a {
+            InnerAtom::Circle {
+                center,
+                radius,
+                layer,
+            } => {
+                if layer == maker_panel::Layer::FrontMask {
+                    let center = map(center.x as f32, center.y as f32);
+                    let size = map(radius as f32 / 2., radius as f32 / 2.);
+
+                    let mut pb = PathBuilder::new();
+                    pb.move_to(center.0, center.1 - size.1 / 2.);
+                    pb.cubic_to(
+                        center.0 + size.0 * 2. / 3.,
+                        center.1 - size.1 / 2.,
+                        center.0 + size.0 * 2. / 3.,
+                        center.1 + size.1 / 2.,
+                        center.0,
+                        center.1 + size.1 / 2.,
+                    );
+                    pb.cubic_to(
+                        center.0 - size.0 * 2. / 3.,
+                        center.1 + size.1 / 2.,
+                        center.0 - size.0 * 2. / 3.,
+                        center.1 - size.1 / 2.,
+                        center.0,
+                        center.1 - size.1 / 2.,
+                    );
+                    pb.close();
+                    // pb.move_to(center.0, center.1);
+                    // pb.arc(center.0, center.1, size.0 / 2., 0., 2. * std::f32::consts::PI);
+                    dt.fill(
+                        &pb.finish(),
+                        &Source::Solid(SolidSource {
+                            r: 151,
+                            g: 149,
+                            b: 152,
+                            a: 0xff,
+                        }),
+                        &DrawOptions::new(),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let data: Vec<u8> = dt
+        .into_vec()
+        .into_iter()
+        .map(|p| {
+            vec![
+                (p & 0xff) as u8,
+                ((p >> 8) & 0xff) as u8,
+                ((p >> 16) & 0xff) as u8,
+                ((p >> 24) & 0xff) as u8,
+            ]
+        })
+        .flatten()
+        .collect();
+
+    Texture::new(
+        Extent3d::new(width as u32, height as u32, 1),
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8Unorm,
+    )
+}
+
 fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
     use bevy::render::{
         mesh::{Indices, VertexAttributeValues},
@@ -371,7 +476,24 @@ fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
         }
     }
 
-    let uvs = vec![[0.0, 0.0, 0.0]; vertexes.len()];
+    use std::f32::MAX;
+    let ((x_min, x_max), (y_min, y_max)) = vertexes.iter().fold(
+        ((MAX, -MAX), (MAX, -MAX)),
+        |((x_min, x_max), (y_min, y_max)), v| {
+            let (x, y) = (v[0], v[1]);
+            ((x_min.min(x), x_max.max(x)), (y_min.min(y), y_max.max(y)))
+        },
+    );
+    let uvs = vertexes
+        .iter()
+        .map(|v| {
+            [
+                (v[0] - x_min) / (x_max - x_min),
+                (v[1] - y_min) / (y_max - y_min),
+            ]
+        })
+        .collect();
+
     mesh.set_attribute(
         Mesh::ATTRIBUTE_POSITION,
         VertexAttributeValues::Float3(vertexes),
@@ -380,7 +502,7 @@ fn build_panel_mesh(tessellation: (Vec<[f64; 3]>, Vec<u16>)) -> Mesh {
         Mesh::ATTRIBUTE_NORMAL,
         VertexAttributeValues::Float3(normals),
     );
-    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float3(uvs));
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float2(uvs));
     mesh.set_indices(Some(Indices::U16(indices)));
 
     mesh
@@ -394,6 +516,7 @@ fn spawner(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut textures: ResMut<Assets<Texture>>,
 ) {
     for ev in spawn_reader.iter(&ev_spawn) {
         match ev {
@@ -401,8 +524,13 @@ fn spawner(
                 let mut p = panel.panel();
                 p.convex_hull(*convex_hull);
 
-                let mesh = meshes.add(build_panel_mesh(p.tessellate_3d().unwrap()));
-                let material = materials.add(Color::rgb(color[0], color[1], color[2]).into());
+                let tessellation = p.tessellate_3d().unwrap();
+                let t = build_panel_texture(p.interior_geometry(), color, &tessellation.0);
+                let mesh = meshes.add(build_panel_mesh(tessellation));
+                let material = materials.add(StandardMaterial {
+                    albedo_texture: Some(textures.add(t)),
+                    ..StandardMaterial::default()
+                });
 
                 let transform = if let Some(t) = transform {
                     t.clone()
