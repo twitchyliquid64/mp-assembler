@@ -372,6 +372,27 @@ fn build_panel_texture(
 
     for a in atoms {
         match a {
+            InnerAtom::Rect { rect, layer } => {
+                if layer == maker_panel::Layer::FrontMask {
+                    let (x1, y1) = rect.min().x_y();
+                    let (x1, y1) = map(x1 as f32, y1 as f32);
+                    let (x2, y2) = rect.max().x_y();
+                    let (x2, y2) = map(x2 as f32, y2 as f32);
+
+                    let mut pb = PathBuilder::new();
+                    pb.rect(x1, y1, x2 - x1, y2 - y1);
+                    dt.fill(
+                        &pb.finish(),
+                        &Source::Solid(SolidSource {
+                            r: 151,
+                            g: 149,
+                            b: 152,
+                            a: 0xff,
+                        }),
+                        &DrawOptions::new(),
+                    );
+                }
+            }
             InnerAtom::Circle {
                 center,
                 radius,
@@ -380,8 +401,8 @@ fn build_panel_texture(
                 if layer == maker_panel::Layer::FrontMask {
                     let mut pb = PathBuilder::new();
 
-                    for i in 0..=64 {
-                        let angle = i as f32 * PI / 32.;
+                    for i in 0..=48 {
+                        let angle = i as f32 * PI / 24.;
                         let (sin_theta, cos_theta) = angle.sin_cos();
                         let dx = radius as f32;
                         let dy = 0.;
