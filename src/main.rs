@@ -31,8 +31,8 @@ fn startup(commands: &mut Commands) {
         // lights
         .spawn(LightBundle {
             light: Light {
-                color: Color::rgb(0.8, 0.8, 0.8),
-                depth: 0.1..90.0,
+                color: Color::rgb(0.9, 0.9, 0.9),
+                depth: 1.0..900.0,
                 fov: f32::to_radians(20.0),
             },
             transform: Transform::from_translation(Vec3::new(20.0, 80.0, 40.0)),
@@ -40,8 +40,8 @@ fn startup(commands: &mut Commands) {
         })
         .spawn(LightBundle {
             light: Light {
-                color: Color::rgb(0.7, 0.7, 0.7),
-                depth: 0.1..90.0,
+                color: Color::rgb(0.9, 0.9, 0.9),
+                depth: 1.0..900.0,
                 fov: f32::to_radians(20.0),
             },
             transform: Transform::from_translation(Vec3::new(-40.0, -180.0, 40.0)),

@@ -334,7 +334,7 @@ fn build_panel_texture(
 ) -> Texture {
     use maker_panel::features::InnerAtom;
     use raqote::*;
-    use std::f32::MAX;
+    use std::f32::{consts::PI, MAX};
 
     let ((x_min, x_max), (y_min, y_max)) = vertexes.iter().fold(
         ((MAX, -MAX), (MAX, -MAX)),
@@ -344,7 +344,16 @@ fn build_panel_texture(
         },
     );
 
-    let (width, height) = (1000, 1000);
+    let avg_dims = ((x_max - x_min) + (y_max - y_min)) / 2.;
+    let (width, height) = if avg_dims < 31. {
+        (500, 500)
+    } else if avg_dims < 48. {
+        (1536, 1536)
+    } else if avg_dims < 60. {
+        (2048, 2048)
+    } else {
+        (3072, 2048)
+    };
     let mut dt = DrawTarget::new(width, height);
     dt.clear(SolidSource::from_unpremultiplied_argb(
         255,
@@ -356,8 +365,8 @@ fn build_panel_texture(
     // let (dx, dy) = ((xb.1 - xb.0).ceil() as usize, (yb.1 - yb.0).ceil() as usize);
     let map = |x: f32, y: f32| {
         (
-            (x - x_min) * (width as f32 - 0.) / (x_max - x_min) + 0.,
-            (y - y_min) * (height as f32 - 0.) / (y_max - y_min) + 0.,
+            ((x - x_min) / (x_max - x_min)) * (width as f32 - 0.) + 0.,
+            ((y - y_min) / (y_max - y_min)) * (height as f32 - 0.) + 0.,
         )
     };
 
@@ -369,28 +378,25 @@ fn build_panel_texture(
                 layer,
             } => {
                 if layer == maker_panel::Layer::FrontMask {
-                    let center = map(center.x as f32, center.y as f32);
-                    let size = map(radius as f32 / 2., radius as f32 / 2.);
-
                     let mut pb = PathBuilder::new();
-                    pb.move_to(center.0, center.1 - size.1 / 2.);
-                    pb.cubic_to(
-                        center.0 + size.0 * 2. / 3.,
-                        center.1 - size.1 / 2.,
-                        center.0 + size.0 * 2. / 3.,
-                        center.1 + size.1 / 2.,
-                        center.0,
-                        center.1 + size.1 / 2.,
-                    );
-                    pb.cubic_to(
-                        center.0 - size.0 * 2. / 3.,
-                        center.1 + size.1 / 2.,
-                        center.0 - size.0 * 2. / 3.,
-                        center.1 - size.1 / 2.,
-                        center.0,
-                        center.1 - size.1 / 2.,
-                    );
+
+                    for i in 0..=64 {
+                        let angle = i as f32 * PI / 32.;
+                        let (sin_theta, cos_theta) = angle.sin_cos();
+                        let dx = radius as f32;
+                        let dy = 0.;
+                        let (x2, y2) = map(
+                            dx * cos_theta - dy * sin_theta + center.x as f32,
+                            dx * sin_theta + dy * cos_theta + center.y as f32,
+                        );
+                        if i == 0 {
+                            pb.move_to(x2, y2);
+                        } else {
+                            pb.line_to(x2, y2);
+                        }
+                    }
                     pb.close();
+
                     // pb.move_to(center.0, center.1);
                     // pb.arc(center.0, center.1, size.0 / 2., 0., 2. * std::f32::consts::PI);
                     dt.fill(
